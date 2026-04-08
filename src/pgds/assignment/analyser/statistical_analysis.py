@@ -1,92 +1,76 @@
-"""
-TASK 6: Advanced Statistical Analysis
-1. Correlation Analysis for Default Risks:
-   Credit_Score, Loan_Amount, Interest_Rate, Overdue_Amount, Default_Flag
-2. Pairwise Correlation Heatmap:
-   EMI_Amount, Recovery_Rate, Default_Amount
-3. Branch-Level Correlation:
-   Delinquent_Loans, Loan_Disbursement_Amount, Recovery_Rate vs efficiency
-"""
-
 import pandas as pd
 
-
-def correlation_analysis(df, branches=None, defaults=None):
-    """Alias — calls advanced_statistical_analysis."""
-    return advanced_statistical_analysis(df, branches=branches, defaults=defaults)
-
-
 def advanced_statistical_analysis(df, branches=None, defaults=None):
-    """
-    Compute advanced correlation matrices for default risk, pairwise
-    financial variables, and branch-level operational metrics.
+    print("\n📈 ADVANCED STATISTICAL ANALYSIS")
 
-    Returns
-    -------
-    dict with keys: default_risk_corr, pairwise_corr, branch_corr,
-                    branch_region_corr
-    """
     results = {}
-    print("\n" + "="*55)
-    print(" TASK 6 — Advanced Statistical Analysis")
-    print("="*55)
 
-    # ── 1. Default risk correlation ───────────────────────────────────────────
-    risk_cols = ['CREDIT_SCORE', 'LOAN_AMOUNT', 'INTEREST_RATE',
-                 'OVERDUE_AMOUNT', 'DEFAULT_FLAG']
-    risk_cols = [c for c in risk_cols if c in df.columns]
+    # -----------------------------------
+    # 1. CORRELATION (DEFAULT RISK)
+    # -----------------------------------
+    cols = [
+        'CREDIT_SCORE',
+        'LOAN_AMOUNT',
+        'INTEREST_RATE',
+        'OVERDUE_AMOUNT',
+        'DEFAULT_FLAG'
+    ]
 
-    if len(risk_cols) >= 2:
-        corr = df[risk_cols].corr()
+    cols = [c for c in cols if c in df.columns]
+
+    if len(cols) >= 2:
+        corr = df[cols].corr()
         results['default_risk_corr'] = corr
-        print("\n📌 Default Risk Correlation Matrix:")
-        print(corr.round(4).to_string())
-        if 'DEFAULT_FLAG' in corr.columns:
-            print("\n  Correlation with DEFAULT_FLAG:")
-            print(corr['DEFAULT_FLAG'].drop('DEFAULT_FLAG').round(4).to_string())
+        print("\nDefault Risk Correlation:\n", corr)
 
-    # ── 2. Pairwise correlation: EMI / Recovery / Default Amount ──────────────
+    # -----------------------------------
+    # 2. PAIRWISE CORRELATION (ADVANCED)
+    # -----------------------------------
     if defaults is not None:
-        defaults = defaults.copy()
-        if 'RECOVERY_RATE' not in defaults.columns:
-            defaults['RECOVERY_RATE'] = (
-                defaults['RECOVERY_AMOUNT'] /
-                defaults['DEFAULT_AMOUNT'].replace(0, pd.NA)
-            ).clip(0, 1)
+        defaults['RECOVERY_RATE'] = (
+            defaults['RECOVERY_AMOUNT'] / defaults['DEFAULT_AMOUNT']
+        )
 
-        merged = df.merge(defaults[['LOAN_ID', 'RECOVERY_RATE', 'DEFAULT_AMOUNT']],
-                          on='LOAN_ID', how='left', suffixes=('', '_DEF'))
+        pair_cols = [
+            'EMI_AMOUNT',
+            'RECOVERY_RATE',
+            'DEFAULT_AMOUNT'
+        ]
 
-        pair_cols = ['EMI_AMOUNT', 'RECOVERY_RATE', 'DEFAULT_AMOUNT']
+        merged = df.merge(defaults, on='LOAN_ID', how='left')
+
         pair_cols = [c for c in pair_cols if c in merged.columns]
 
         if len(pair_cols) >= 2:
             pair_corr = merged[pair_cols].corr()
             results['pairwise_corr'] = pair_corr
-            print("\n📌 Pairwise Correlation (EMI / Recovery Rate / Default Amount):")
-            print(pair_corr.round(4).to_string())
+            print("\nPairwise Correlation:\n", pair_corr)
 
-    # ── 3. Branch-level correlation (using branches table directly) ───────────
+    # -----------------------------------
+    # 3. BRANCH-LEVEL CORRELATION
+    # -----------------------------------
     if branches is not None:
-        merged_b = branches.copy()
+        if 'BRANCH_ID' not in df.columns:
+            print("⚠️ ********** BRANCH_ID not available in dataset → skipping branch-level correlation")
+        else:
+             print("######################")
+             branch_cols = [
+            'DELINQUENT_LOANS',
+            'LOAN_DISBURSEMENT_AMOUNT'
+            ]
 
-        branch_cols = ['DELINQUENT_LOANS', 'LOAN_DISBURSEMENT_AMOUNT',
-                       'AVG_PROCESSING_TIME', 'TOTAL_ACTIVE_LOANS']
-        branch_cols = [c for c in branch_cols if c in merged_b.columns]
+             merged = df.merge(branches, on='BRANCH_ID', how='left')
 
-        if len(branch_cols) >= 2:
-            branch_corr = merged_b[branch_cols].corr()
-            results['branch_corr'] = branch_corr
-            print("\n📌 Branch-Level Correlation Matrix:")
-            print(branch_corr.round(4).to_string())
+             merged['RECOVERY_RATE'] = merged.get('RECOVERY_AMOUNT', 0) / merged.get('DEFAULT_AMOUNT', 1)
 
-        # Regional aggregation
-        if 'REGION' in merged_b.columns:
-            agg_cols = {c: 'mean' for c in branch_cols}
-            region_agg = merged_b.groupby('REGION').agg(agg_cols).round(4)
-            results['branch_region_corr'] = region_agg
-            print("\n📌 Branch Metrics by Region (mean):")
-            print(region_agg.to_string())
+             branch_cols = [c for c in branch_cols if c in merged.columns]
 
-    print("\n✅ Task 6 complete")
+             branch_cols.append('RECOVERY_RATE')
+
+             if len(branch_cols) >= 2:
+                 branch_corr = merged[branch_cols].corr()
+                 results['branch_corr'] = branch_corr
+
+                 print("\nBranch-Level Correlation:\n", branch_corr)
+
     return results

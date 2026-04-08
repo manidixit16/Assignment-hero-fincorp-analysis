@@ -1,223 +1,191 @@
-"""
-Hero FinCorp: Comprehensive Data-Driven Analysis
-================================================
-Entry point — runs all 20 analysis tasks end-to-end.
-
-Usage
------
-    python main.py
-
-Output
-------
-    reports/figures/   → PNG charts for every task
-    reports/hero_fincorp_analysis.docx  → full Word report
-"""
-
-import os
-import warnings
-warnings.filterwarnings('ignore')
-
-# ── Data pipeline ──────────────────────────────────────────────────────────
-from src.pgds.assignment.dataprocessor.data_loader       import load_data
-from src.pgds.assignment.dataprocessor.data_cleaning     import clean_data
+# -----------------------------------
+# CORE PIPELINE
+# -----------------------------------
+from src.pgds.assignment.dataprocessor.data_loader import load_data
+from src.pgds.assignment.dataprocessor.data_cleaning import clean_data
 from src.pgds.assignment.dataprocessor.feature_engineering import create_features
-from src.pgds.assignment.dataprocessor.merge_data        import merge_all
+from src.pgds.assignment.dataprocessor.merge_data import merge_all
 
-# ── Analysers (Tasks 2–20) ─────────────────────────────────────────────────
-from src.pgds.assignment.analyser.descriptive_analysis   import descriptive_analysis
-from src.pgds.assignment.analyser.default_analysis       import default_risk_analysis
-from src.pgds.assignment.analyser.branch_analysis        import branch_performance
-from src.pgds.assignment.analyser.customer_analysis      import customer_segmentation
-from src.pgds.assignment.analyser.statistical_analysis   import advanced_statistical_analysis
-from src.pgds.assignment.analyser.transaction_analysis   import transaction_and_recovery_analysis
-from src.pgds.assignment.analyser.emi_analysis           import emi_analysis
-from src.pgds.assignment.analyser.application_analysis   import application_analysis
-from src.pgds.assignment.analyser.recovery_analysis      import recovery_effectiveness
-from src.pgds.assignment.analyser.disbursement_analysis  import disbursement_efficiency
-from src.pgds.assignment.analyser.profitability_analysis import profitability
-from src.pgds.assignment.analyser.geospatial_analysis    import geo_analysis
-from src.pgds.assignment.analyser.default_trends         import default_trends
-from src.pgds.assignment.analyser.branch_efficiency      import branch_efficiency
-from src.pgds.assignment.analyser.time_series_analysis   import time_series
-from src.pgds.assignment.analyser.customer_behavior      import customer_behavior
-from src.pgds.assignment.analyser.risk_analysis          import risk_matrix
-from src.pgds.assignment.analyser.time_to_default        import time_to_default
-from src.pgds.assignment.analyser.transaction_pattern    import transaction_pattern
+# -----------------------------------
+# ANALYSIS MODULES
+# -----------------------------------
+from src.pgds.assignment.analyser.descriptive_analysis import descriptive_analysis
+from src.pgds.assignment.analyser.default_analysis import default_risk_analysis
+from src.pgds.assignment.analyser.branch_analysis import branch_performance
+from src.pgds.assignment.analyser.customer_analysis import customer_segmentation
+from src.pgds.assignment.analyser.statistical_analysis import advanced_statistical_analysis
+from src.pgds.assignment.analyser.transaction_analysis import transaction_and_recovery_analysis
+from src.pgds.assignment.analyser.emi_analysis import emi_analysis
+from src.pgds.assignment.analyser.application_analysis import application_insights
+from src.pgds.assignment.analyser.recovery_analysis import recovery_effectiveness
+from src.pgds.assignment.analyser.disbursement_analysis import disbursement_efficiency
+from src.pgds.assignment.analyser.profitability_analysis import profitability_analysis
+from src.pgds.assignment.analyser.geospatial_analysis import geospatial_analysis
+from src.pgds.assignment.analyser.default_trends import default_trends_analysis
+from src.pgds.assignment.analyser.time_series_analysis import time_series_analysis
+from src.pgds.assignment.analyser.customer_behavior import customer_behavior_analysis
+from src.pgds.assignment.analyser.risk_analysis import risk_assessment
+from src.pgds.assignment.analyser.time_to_default import time_to_default_analysis
+from src.pgds.assignment.analyser.transaction_pattern import transaction_pattern_analysis
+from src.pgds.assignment.analyser.branch_efficiency import branch_efficiency_analysis
 
-# ── Visualiser ─────────────────────────────────────────────────────────────
+# -----------------------------------
+# VISUALIZATION MODULES
+# -----------------------------------
 from src.pgds.assignment.visualizer.plots import (
-    plot_all,
     plot_descriptive,
     plot_default_risk,
-    plot_statistical_analysis,
     plot_branch_performance,
     plot_customer_segments,
+    plot_statistical_analysis,
     plot_transaction_recovery,
     plot_emi_analysis,
-    plot_application_analysis,
+    plot_application_insights,
+    plot_recovery_analysis,
+    plot_disbursement_efficiency,
     plot_profitability,
+    plot_geospatial,
     plot_default_trends,
     plot_time_series,
+    plot_customer_behavior,
+    plot_risk_analysis,
     plot_time_to_default,
     plot_transaction_patterns,
+    plot_branch_efficiency
 )
 
-# ── Report generator ───────────────────────────────────────────────────────
+# -----------------------------------
+# REPORT
+# -----------------------------------
 from src.pgds.assignment.reporting.report_generator import generate_full_report
 
 
 def main():
-    print("\n" + "="*60)
-    print("  HERO FINCORP — COMPREHENSIVE DATA-DRIVEN ANALYSIS")
-    print("="*60)
 
-    # ──────────────────────────────────────────────────────────────
-    # STEP 1 — Load raw data
-    # ──────────────────────────────────────────────────────────────
-    print("\n[STEP 1] Loading datasets...")
+    print("\n🚀 STARTING FULL DATA ANALYSIS PIPELINE\n")
+
+    # -----------------------------------
+    # LOAD + CLEAN + FEATURE ENGINEERING
+    # -----------------------------------
     data = load_data()
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 1 — Data Quality & Preparation
-    # ──────────────────────────────────────────────────────────────
-    print("\n[TASK 1] Data Quality & Preparation")
     data = clean_data(data)
-
-    # ──────────────────────────────────────────────────────────────
-    # Feature Engineering
-    # ──────────────────────────────────────────────────────────────
     data = create_features(data)
 
-    # ──────────────────────────────────────────────────────────────
-    # Master merge
-    # ──────────────────────────────────────────────────────────────
+    print("Loans columns:==================", data['loans'].columns)
+    print("Applications columns:===============", data['applications'].columns)
+
     df = merge_all(data)
 
-    # Shortcuts to raw tables
-    applications = data['applications']
-    transactions = data['transactions']
-    defaults     = data['defaults']
-    branches     = data['branches']
+    # -----------------------------------
+    # ANALYSIS
+    # -----------------------------------
 
-    # ──────────────────────────────────────────────────────────────
-    # TASK 2 — Descriptive Analysis
-    # ──────────────────────────────────────────────────────────────
-    t2 = descriptive_analysis(df, applications=applications)
-    plot_descriptive(df, applications=applications)
+    descriptive_analysis(df, data['applications'])
 
-    # ──────────────────────────────────────────────────────────────
-    # TASK 3 — Default Risk Analysis
-    # ──────────────────────────────────────────────────────────────
-    t3 = default_risk_analysis(df, branches=branches)
+    default_risk_analysis(df, data['branches'])
+
+    branch_performance(df, data['applications'], data['defaults'])
+
+    customer_segmentation(df)
+
+    advanced_statistical_analysis(df, data['branches'], data['defaults'])
+
+    transaction_and_recovery_analysis(
+        df,
+        data['transactions'],
+        data['defaults'],
+        data['branches']
+    )
+
+    emi_analysis(df)
+
+    application_insights(data['applications'])
+
+    recovery_effectiveness(df, data['defaults'], data['branches'])
+
+    disbursement_efficiency(
+        data['applications'],
+        data['loans'],
+        data['branches']
+    )
+
+    profitability_analysis(df, data['branches'])
+
+    geospatial_analysis(df, data['branches'])
+
+    default_trends_analysis(df, data['defaults'])
+
+    time_series_analysis(
+        df,
+        data['loans'],
+        data['applications'],
+        data['defaults'],
+        data['branches']
+    )
+
+    customer_behavior_analysis(df, data['applications'])
+
+    risk_assessment(df, data['defaults'])
+
+    time_to_default_analysis(
+        df,
+        data['loans'],
+        data['defaults']
+    )
+
+    transaction_pattern_analysis(
+        df,
+        data['transactions']
+    )
+
+    branch_efficiency_analysis(
+        data['applications'],
+        data['loans'],
+        data['branches']
+    )
+
+    # -----------------------------------
+    # VISUALIZATIONS
+    # -----------------------------------
+
+    plot_descriptive(df, data['applications'])
     plot_default_risk(df)
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 4 — Branch & Regional Performance
-    # ──────────────────────────────────────────────────────────────
-    t4 = branch_performance(df, applications=applications,
-                            defaults=defaults, branches=branches)
-    plot_branch_performance(df, branches=branches)
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 5 — Customer Segmentation
-    # ──────────────────────────────────────────────────────────────
-    t5 = customer_segmentation(df)
-    plot_customer_segments(t5['df'])
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 6 — Advanced Statistical Analysis
-    # ──────────────────────────────────────────────────────────────
-    t6 = advanced_statistical_analysis(df, branches=branches, defaults=defaults)
-    plot_statistical_analysis(df, defaults=defaults)
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 7 — Transaction & Recovery Analysis
-    # ──────────────────────────────────────────────────────────────
-    t7 = transaction_and_recovery_analysis(df, transactions, defaults, branches)
-    plot_transaction_recovery(df, transactions, defaults)
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 8 — EMI Analysis
-    # ──────────────────────────────────────────────────────────────
-    t8 = emi_analysis(df)
+    plot_branch_performance(df)
+    plot_customer_segments(df)
+    plot_statistical_analysis(df, data['defaults'])
+    plot_transaction_recovery(df, data['transactions'], data['defaults'])
     plot_emi_analysis(df)
+    plot_application_insights(data['applications'])
+    plot_recovery_analysis(data['defaults'], df, data['branches'])
+    plot_disbursement_efficiency(
+        data['applications'],
+        data['loans'],
+        data['branches']
+    )
+    plot_profitability(df, data['branches'])
+    plot_geospatial(df, data['branches'])
+    plot_default_trends(df, data['defaults'])
+    plot_time_series(
+        data['loans'],
+        data['applications'],
+        data['defaults'],
+        df,
+        data['branches']
+    )
+    plot_customer_behavior(df)
+    plot_risk_analysis(df, data['defaults'])
+    plot_time_to_default(data['loans'], data['defaults'])
+    plot_transaction_patterns(data['transactions'], df)
+    plot_branch_efficiency(data['applications'], data['loans'])
 
-    # ──────────────────────────────────────────────────────────────
-    # TASK 9 — Loan Application Insights
-    # ──────────────────────────────────────────────────────────────
-    t9 = application_analysis(df, applications=applications)
-    plot_application_analysis(df, applications=applications)
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 10 — Recovery Effectiveness
-    # ──────────────────────────────────────────────────────────────
-    t10 = recovery_effectiveness(df, defaults=defaults, branches=branches)
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 11 — Loan Disbursement Efficiency
-    # ──────────────────────────────────────────────────────────────
-    t11 = disbursement_efficiency(df, applications=applications)
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 12 — Profitability Analysis
-    # ──────────────────────────────────────────────────────────────
-    t12 = profitability(df, branches=branches)
-    plot_profitability(df)
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 13 — Geospatial Analysis
-    # ──────────────────────────────────────────────────────────────
-    t13 = geo_analysis(df, branches=branches)
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 14 — Default Trends
-    # ──────────────────────────────────────────────────────────────
-    t14 = default_trends(df, defaults=defaults)
-    plot_default_trends(df, defaults=defaults)
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 15 — Branch Efficiency
-    # ──────────────────────────────────────────────────────────────
-    t15 = branch_efficiency(df, applications=applications, branches=branches)
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 16 — Time-Series Analysis
-    # ──────────────────────────────────────────────────────────────
-    t16 = time_series(df, applications=applications, defaults=defaults)
-    plot_time_series(df, applications=applications)
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 17 — Customer Behavior Analysis
-    # ──────────────────────────────────────────────────────────────
-    t17 = customer_behavior(df, applications=applications, transactions=transactions)
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 18 — Risk Assessment
-    # ──────────────────────────────────────────────────────────────
-    t18 = risk_matrix(df, defaults=defaults)
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 19 — Time to Default Analysis
-    # ──────────────────────────────────────────────────────────────
-    t19 = time_to_default(df, defaults=defaults)
-    plot_time_to_default(df, defaults=defaults)
-
-    # ──────────────────────────────────────────────────────────────
-    # TASK 20 — Transaction Pattern Analysis
-    # ──────────────────────────────────────────────────────────────
-    t20 = transaction_pattern(df, transactions=transactions)
-    plot_transaction_patterns(df, transactions)
-
-    # ──────────────────────────────────────────────────────────────
-    # Generate Word Report
-    # ──────────────────────────────────────────────────────────────
+    # -----------------------------------
+    # FINAL REPORT
+    # -----------------------------------
     generate_full_report(df)
 
-    print("\n" + "="*60)
-    print("  ✅  ALL 20 TASKS COMPLETED SUCCESSFULLY")
-    print("  📊  Charts  → reports/figures/")
-    print("  📄  Report  → reports/hero_fincorp_analysis.docx")
-    print("="*60 + "\n")
+    print("\n✅ ALL TASKS COMPLETED SUCCESSFULLY\n")
+    print("📊 Check reports/figures/ for charts")
+    print("📄 Check reports/hero_fincorp_analysis.docx for report")
 
 
 if __name__ == "__main__":

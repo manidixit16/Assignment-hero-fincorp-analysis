@@ -1,114 +1,89 @@
-"""
-TASK 19: Time to Default Analysis
-- Calculate the average time from loan disbursement to default
-- Identify loan purposes with the shortest time to default
-- Compare time to default across customer demographics
-"""
+import pandas as pd
+def time_to_default(df):
+    df['TIME_TO_DEFAULT']=(pd.to_datetime(df['DEFAULT_DATE'])-pd.to_datetime(df['LOAN_START_DATE'])).dt.days
+    return df['TIME_TO_DEFAULT'].mean()
+
 
 import pandas as pd
 
+def time_to_default_analysis(df, loans, defaults):
+    print("\n⏳ TIME TO DEFAULT ANALYSIS")
 
-def time_to_default(df, defaults=None):
-    """
-    Measure how quickly loans default after disbursement and
-    identify the highest-risk early-default profiles.
-
-    Returns
-    -------
-    dict with keys: avg_days, median_days, ttd_stats,
-                    ttd_by_purpose, ttd_by_employment,
-                    ttd_by_age_group, ttd_distribution
-    """
     results = {}
-    print("\n" + "="*55)
-    print(" TASK 19 — Time to Default Analysis")
-    print("="*55)
 
-    if defaults is not None and 'DEFAULT_DATE' in defaults.columns:
-        defs_ttd = defaults[['LOAN_ID', 'DEFAULT_DATE']].copy().rename(
-            columns={'DEFAULT_DATE': 'TTD_DEFAULT_DATE'}
-        )
-        merged = df.merge(defs_ttd, on='LOAN_ID', how='inner').copy()
-        merged['DEFAULT_DATE_COL'] = pd.to_datetime(merged['TTD_DEFAULT_DATE'], errors='coerce')
-    elif 'DEFAULT_DATE' in df.columns and 'DEFAULT_FLAG' in df.columns:
-        merged = df[df['DEFAULT_FLAG'] == 1].copy()
-        merged['DEFAULT_DATE_COL'] = pd.to_datetime(merged.get('DEFAULT_DATE'), errors='coerce')
-    else:
-        print("  ⚠️  DEFAULT_DATE not available — skipping Task 19")
-        return results
-
-    merged['DISBURSAL_DATE_COL'] = pd.to_datetime(
-        merged.get('DISBURSAL_DATE', merged.get('REPAYMENT_START_DATE', pd.Series())),
-        errors='coerce'
+    # -----------------------------------
+    # CONVERT DATES
+    # -----------------------------------
+    loans['DISBURSEMENT_DATE'] = pd.to_datetime(
+        loans['DISBURSEMENT_DATE'], errors='coerce'
     )
-    merged['TIME_TO_DEFAULT'] = (merged['DEFAULT_DATE_COL'] - merged['DISBURSAL_DATE_COL']).dt.days
-    merged = merged[merged['TIME_TO_DEFAULT'] > 0].dropna(subset=['TIME_TO_DEFAULT'])
 
-    if merged.empty:
-        print("  ⚠️  No valid TIME_TO_DEFAULT values computed — check date columns")
-        return results
+    defaults['DEFAULT_DATE'] = pd.to_datetime(
+        defaults['DEFAULT_DATE'], errors='coerce'
+    )
 
-    # ── 1. Overall statistics ─────────────────────────────────────────────────
-    ttd_stats = merged['TIME_TO_DEFAULT'].describe().round(1)
-    results['avg_days']    = round(merged['TIME_TO_DEFAULT'].mean(), 1)
-    results['median_days'] = round(merged['TIME_TO_DEFAULT'].median(), 1)
-    results['ttd_stats']   = ttd_stats
+    # -----------------------------------
+    # MERGE DATA
+    # -----------------------------------
+    merged = loans.merge(defaults, on='LOAN_ID', how='inner') \
+                  .merge(df[['LOAN_ID', 'LOAN_PURPOSE', 'CREDIT_SCORE', 'ANNUAL_INCOME']],
+                         on='LOAN_ID', how='left')
 
-    print(f"\n📌 Time to Default Statistics (days):")
-    print(ttd_stats.to_string())
-    print(f"\n  Average : {results['avg_days']} days  (~{results['avg_days']/30:.1f} months)")
-    print(f"  Median  : {results['median_days']} days  (~{results['median_days']/30:.1f} months)")
+    # -----------------------------------
+    # CALCULATE TIME TO DEFAULT
+    # -----------------------------------
+    merged['TIME_TO_DEFAULT'] = (
+        merged['DEFAULT_DATE'] - merged['DISBURSEMENT_DATE']
+    ).dt.days
 
-    # ── 2. By loan purpose ────────────────────────────────────────────────────
+    # Remove invalid values
+    merged = merged[merged['TIME_TO_DEFAULT'] > 0]
+
+    # -----------------------------------
+    # 1. AVERAGE TIME TO DEFAULT
+    # -----------------------------------
+    avg_time = merged['TIME_TO_DEFAULT'].mean()
+    results['avg_time'] = avg_time
+
+    print(f"\nAverage Time to Default: {avg_time:.2f} days")
+
+    # -----------------------------------
+    # 2. BY LOAN PURPOSE
+    # -----------------------------------
     if 'LOAN_PURPOSE' in merged.columns:
-        ttd_purpose = merged.groupby('LOAN_PURPOSE')['TIME_TO_DEFAULT'].agg(
-            Avg_Days='mean', Median_Days='median', Count='count'
-        ).round(1).sort_values('Avg_Days')
-        results['ttd_by_purpose'] = ttd_purpose
-        print("\n📌 Avg Time to Default by Loan Purpose (shortest first):")
-        print(ttd_purpose.to_string())
+        purpose_time = merged.groupby('LOAN_PURPOSE')['TIME_TO_DEFAULT'].mean()
 
-    # ── 3. By employment status ───────────────────────────────────────────────
-    if 'EMPLOYMENT_STATUS' in merged.columns:
-        ttd_emp = merged.groupby('EMPLOYMENT_STATUS')['TIME_TO_DEFAULT'].agg(
-            Avg_Days='mean', Median_Days='median', Count='count'
-        ).round(1).sort_values('Avg_Days')
-        results['ttd_by_employment'] = ttd_emp
-        print("\n📌 Avg Time to Default by Employment Status:")
-        print(ttd_emp.to_string())
+        results['purpose_time'] = purpose_time
 
-    # ── 4. By age group ───────────────────────────────────────────────────────
-    if 'AGE' in merged.columns:
-        merged['AGE_GROUP'] = pd.cut(
-            merged['AGE'],
-            bins=[18, 25, 35, 45, 55, 100],
-            labels=['18-25', '26-35', '36-45', '46-55', '55+']
+        print("\nTime to Default by Loan Purpose:\n", purpose_time)
+
+    # -----------------------------------
+    # 3. BY DEMOGRAPHICS
+    # -----------------------------------
+    if 'ANNUAL_INCOME' in merged.columns:
+        merged['INCOME_GROUP'] = pd.qcut(
+            merged['ANNUAL_INCOME'],
+            q=3,
+            labels=['Low', 'Medium', 'High']
         )
-        ttd_age = merged.groupby('AGE_GROUP', observed=True)['TIME_TO_DEFAULT'].agg(
-            Avg_Days='mean', Median_Days='median', Count='count'
-        ).round(1)
-        results['ttd_by_age_group'] = ttd_age
-        print("\n📌 Avg Time to Default by Age Group:")
-        print(ttd_age.to_string())
 
-    # ── 5. By region ──────────────────────────────────────────────────────────
-    if 'REGION' in merged.columns:
-        ttd_region = merged.groupby('REGION')['TIME_TO_DEFAULT'].agg(
-            Avg_Days='mean', Median_Days='median', Count='count'
-        ).round(1).sort_values('Avg_Days')
-        results['ttd_by_region'] = ttd_region
-        print("\n📌 Avg Time to Default by Region:")
-        print(ttd_region.to_string())
+        income_time = merged.groupby('INCOME_GROUP')['TIME_TO_DEFAULT'].mean()
 
-    # ── 6. Distribution buckets ───────────────────────────────────────────────
-    ttd_dist = pd.cut(
-        merged['TIME_TO_DEFAULT'],
-        bins=[0, 90, 180, 365, 730, 9999],
-        labels=['0-3 months', '3-6 months', '6-12 months', '1-2 years', '>2 years']
-    ).value_counts().sort_index()
-    results['ttd_distribution'] = ttd_dist
-    print("\n📌 Time-to-Default Distribution Buckets:")
-    print(ttd_dist.to_string())
+        results['income_time'] = income_time
 
-    print("\n✅ Task 19 complete")
+        print("\nTime to Default by Income Group:\n", income_time)
+
+    if 'CREDIT_SCORE' in merged.columns:
+        merged['CREDIT_SEGMENT'] = pd.cut(
+            merged['CREDIT_SCORE'],
+            bins=[0, 500, 650, 750, 900],
+            labels=['High Risk', 'Medium', 'Good', 'Excellent']
+        )
+
+        credit_time = merged.groupby('CREDIT_SEGMENT')['TIME_TO_DEFAULT'].mean()
+
+        results['credit_time'] = credit_time
+
+        print("\nTime to Default by Credit Score:\n", credit_time)
+
     return results

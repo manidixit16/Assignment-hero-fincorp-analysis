@@ -1,131 +1,64 @@
-"""
-TASK 18: Risk Assessment
-- Develop a risk matrix for loan products based on Default_Amount,
-  Loan_Term, and Interest_Rate
-- Rank loan types by risk level and suggest mitigation strategies
-- Analyse high-risk customer segments by credit score and income
-"""
-
 import pandas as pd
 
+def risk_assessment(df, defaults):
+    print("\n⚠️ RISK ASSESSMENT")
 
-def risk_matrix(df, defaults=None):
-    """
-    Build a risk matrix across loan products and customer segments,
-    and provide actionable mitigation strategies.
-
-    Returns
-    -------
-    dict with keys: loan_risk_matrix, risk_ranked_purposes,
-                    high_risk_segments, mitigation_strategies,
-                    risk_by_term, risk_by_interest_band
-    """
     results = {}
-    print("\n" + "="*55)
-    print(" TASK 18 — Risk Assessment")
-    print("="*55)
 
-    df = df.copy()
+    # -----------------------------------
+    # MERGE DEFAULT DATA
+    # -----------------------------------
+    merged = df.merge(defaults, on='LOAN_ID', how='left')
 
-    # ── 1. Risk matrix by loan purpose ───────────────────────────────────────
-    if 'LOAN_PURPOSE' in df.columns:
-        risk_cols = {
-            'Default_Rate':       ('DEFAULT_FLAG', 'mean'),
-            'Avg_Default_Amount': ('DEFAULT_AMOUNT', 'mean') if 'DEFAULT_AMOUNT' in df.columns else ('LOAN_AMOUNT', 'mean'),
-            'Avg_Loan_Term':      ('LOAN_TERM', 'mean'),
-            'Avg_Interest_Rate':  ('INTEREST_RATE', 'mean'),
-            'Count':              ('LOAN_ID', 'count'),
-        }
+    # -----------------------------------
+    # 1. RISK MATRIX
+    # -----------------------------------
+    required_cols = ['DEFAULT_AMOUNT', 'LOAN_TERM', 'INTEREST_RATE']
 
-        agg_dict = {v[0]: v[1] for v in risk_cols.values() if v[0] in df.columns}
-        risk_matrix_df = df.groupby('LOAN_PURPOSE').agg(**{
-            k: pd.NamedAgg(column=v[0], aggfunc=v[1])
-            for k, v in risk_cols.items() if v[0] in df.columns
-        }).round(4)
+    available_cols = [c for c in required_cols if c in merged.columns]
 
-        if 'Default_Rate' in risk_matrix_df.columns:
-            risk_matrix_df['Default_Rate_%'] = (risk_matrix_df['Default_Rate'] * 100).round(2)
-            risk_matrix_df = risk_matrix_df.drop(columns='Default_Rate')
+    if len(available_cols) >= 2:
+        risk_matrix = merged[available_cols].corr()
 
-        # Composite risk score (normalised sum of default rate + interest rate)
-        if 'Default_Rate_%' in risk_matrix_df.columns and 'Avg_Interest_Rate' in risk_matrix_df.columns:
-            norm_def  = risk_matrix_df['Default_Rate_%'] / risk_matrix_df['Default_Rate_%'].max()
-            norm_int  = risk_matrix_df['Avg_Interest_Rate'] / risk_matrix_df['Avg_Interest_Rate'].max()
-            risk_matrix_df['Risk_Score'] = ((norm_def + norm_int) / 2).round(4)
-            risk_matrix_df['Risk_Level']  = pd.cut(
-                risk_matrix_df['Risk_Score'],
-                bins=[0, 0.4, 0.65, 1.0],
-                labels=['Low', 'Medium', 'High']
-            )
+        results['risk_matrix'] = risk_matrix
 
-        risk_matrix_df = risk_matrix_df.sort_values('Risk_Score', ascending=False)
-        results['loan_risk_matrix'] = risk_matrix_df
-        print("\n📌 Loan Product Risk Matrix:")
-        print(risk_matrix_df.to_string())
+        print("\nRisk Matrix:\n", risk_matrix)
 
-    # ── 2. Risk ranking with mitigation strategies ────────────────────────────
-    MITIGATION = {
-        'Personal':       'Tighten income-to-EMI ratio (max 35%); require 2 references',
-        'Education':      'Link disbursement to institution verification; add moratorium',
-        'Vehicle':        'Require vehicle registration as collateral; GPS tracking',
-        'Business':       'Mandate GST returns for 2 years; cap at 60% of turnover',
-        'Home Renovation': 'Stage-wise disbursement tied to construction progress',
-    }
+    # -----------------------------------
+    # 2. LOAN TYPE RISK RANKING
+    # -----------------------------------
+    if 'LOAN_TYPE' in merged.columns:
+        loan_risk = merged.groupby('LOAN_TYPE')['DEFAULT_AMOUNT'].mean()
 
-    if 'loan_risk_matrix' in results:
-        ranked = results['loan_risk_matrix'].reset_index()[['LOAN_PURPOSE', 'Risk_Score', 'Risk_Level']].copy() \
-            if 'Risk_Level' in results['loan_risk_matrix'].columns else results['loan_risk_matrix'].reset_index()
-        ranked['Mitigation'] = ranked['LOAN_PURPOSE'].map(MITIGATION).fillna('Standard credit policy applies')
-        results['risk_ranked_purposes'] = ranked
-        print("\n📌 Loan Types Ranked by Risk:")
-        print(ranked.to_string(index=False))
+        loan_risk_sorted = loan_risk.sort_values(ascending=False)
 
-    # ── 3. High-risk customer segments ───────────────────────────────────────
+        results['loan_risk'] = loan_risk_sorted
+
+        print("\nLoan Type Risk Ranking:\n", loan_risk_sorted)
+
+    # -----------------------------------
+    # 3. HIGH-RISK CUSTOMER SEGMENTS
+    # -----------------------------------
     if 'CREDIT_SCORE' in df.columns and 'ANNUAL_INCOME' in df.columns:
-        income_33 = df['ANNUAL_INCOME'].quantile(0.33)
 
-        df['RISK_SEGMENT'] = 'Standard'
-        df.loc[
-            (df['CREDIT_SCORE'] < 580) | (df['ANNUAL_INCOME'] < income_33),
-            'RISK_SEGMENT'
-        ] = 'High Risk'
-        df.loc[
-            (df['CREDIT_SCORE'] < 400) & (df['ANNUAL_INCOME'] < income_33),
-            'RISK_SEGMENT'
-        ] = 'Very High Risk'
-
-        risk_seg = df.groupby('RISK_SEGMENT')['DEFAULT_FLAG'].agg(
-            Default_Rate='mean', Count='count'
+        df['CREDIT_SEGMENT'] = pd.cut(
+            df['CREDIT_SCORE'],
+            bins=[0, 500, 650, 750, 900],
+            labels=['High Risk', 'Medium', 'Good', 'Excellent']
         )
-        risk_seg['Default_Rate_%'] = (risk_seg['Default_Rate'] * 100).round(2)
-        results['high_risk_segments'] = risk_seg
-        print("\n📌 High-Risk Customer Segments:")
-        print(risk_seg[['Count', 'Default_Rate_%']].to_string())
 
-    # ── 4. Risk by loan term ──────────────────────────────────────────────────
-    if 'LOAN_TERM' in df.columns:
-        risk_term = df.groupby('LOAN_TERM')['DEFAULT_FLAG'].agg(
-            Default_Rate='mean', Count='count'
+        df['INCOME_GROUP'] = pd.qcut(
+            df['ANNUAL_INCOME'],
+            q=3,
+            labels=['Low', 'Medium', 'High']
         )
-        risk_term['Default_Rate_%'] = (risk_term['Default_Rate'] * 100).round(2)
-        results['risk_by_term'] = risk_term
-        print("\n📌 Default Rate by Loan Term (months) — sample:")
-        print(risk_term.head(10).to_string())
 
-    # ── 5. Risk by interest rate band ────────────────────────────────────────
-    if 'INTEREST_RATE' in df.columns:
-        df['INTEREST_BAND'] = pd.cut(
-            df['INTEREST_RATE'],
-            bins=[0, 8, 11, 14, 20],
-            labels=['Low (≤8%)', 'Medium (8-11%)', 'High (11-14%)', 'Very High (>14%)']
-        )
-        risk_int = df.groupby('INTEREST_BAND', observed=True)['DEFAULT_FLAG'].agg(
-            Default_Rate='mean', Count='count'
-        )
-        risk_int['Default_Rate_%'] = (risk_int['Default_Rate'] * 100).round(2)
-        results['risk_by_interest_band'] = risk_int
-        print("\n📌 Default Rate by Interest Rate Band:")
-        print(risk_int[['Count', 'Default_Rate_%']].to_string())
+        segment_risk = df.groupby(
+            ['CREDIT_SEGMENT', 'INCOME_GROUP']
+        )['DEFAULT_FLAG'].mean()
 
-    print("\n✅ Task 18 complete")
+        results['segment_risk'] = segment_risk
+
+        print("\nHigh-Risk Segments:\n", segment_risk)
+
     return results
