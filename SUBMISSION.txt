@@ -1,4 +1,4 @@
-Hero FinCorp — Comprehensive Data-Driven Analysis
+Hero FinCorp: A Comprehensive Data-Driven Analysis
 Assignment Submission
 =====================================================
 
@@ -6,51 +6,7 @@ GitHub Repository Link:
 https://github.com/manidixit16/Assignment-hero-fincorp-analysis
 
 =====================================================
-HOW TO PUSH TO GITHUB (run these commands once)
-=====================================================
-
-Step 1: Open a terminal inside the hero_fincorp_final/ folder
-
-Step 2: Run:
-
-    git init
-    git add .
-    git commit -m "Hero FinCorp: All 20 Analysis Tasks Complete"
-    git branch -M main
-    git remote add origin https://github.com/<YOUR-USERNAME>/hero-fincorp-analysis.git
-    git push -u origin main
-
-  Replace <YOUR-USERNAME> with your actual GitHub username.
-
-Step 3: Update the repository link above with your real URL,
-  then submit THIS FILE via Vlearn.
-
-=====================================================
-WHAT IS IN THIS REPOSITORY
-=====================================================
-
-  main.py                  Entry point — runs all 20 tasks
-  config.py                Path settings
-  requirements.txt         Python dependencies
-
-  data/raw/                6 CSV datasets (customers, loans,
-                           applications, defaults, branches,
-                           transactions)
-
-  src/pgds/assignment/
-    dataprocessor/         data_loader, data_cleaning,
-                           feature_engineering, merge_data
-    analyser/              20 task modules (one per task)
-    visualizer/plots.py    37 charts saved as PNG
-    reporting/             Word report generator
-
-  reports/figures/         37 PNG visualizations
-  reports/                 hero_fincorp_analysis.docx
-
-  README.md                Full project overview with charts
-
-=====================================================
-Student Name    : ____________________________
-Student ID      : ____________________________
+Student Name    : Mani Dixit
+Student ID      : manidixit16
 Submission Date : April 2026
 =====================================================
