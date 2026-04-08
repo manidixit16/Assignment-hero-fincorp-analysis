@@ -3,7 +3,7 @@ Assignment Submission
 =====================================================
 
 GitHub Repository Link:
-https://github.com/<YOUR-USERNAME>/hero-fincorp-analysis
+https://github.com/manidixit16/Assignment-hero-fincorp-analysis
 
 =====================================================
 HOW TO PUSH TO GITHUB (run these commands once)
