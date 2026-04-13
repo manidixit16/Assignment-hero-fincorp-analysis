@@ -11,9 +11,8 @@ def clean_data(data):
         # -----------------------------
         # 1. STANDARDIZE COLUMN NAMES
         # -----------------------------
-        # df.columns = df.columns.str.strip().str.upper()
-        df.columns = df.columns.str.strip()  # remove spaces
-        df.columns = df.columns.str.upper()  # 🔥 REQUIRED FIX
+        df.columns = df.columns.str.strip()
+        df.columns = df.columns.str.upper()
 
         # -----------------------------
         # 2. REMOVE DUPLICATES
@@ -35,20 +34,41 @@ def clean_data(data):
         if 'LOAN_ID' in df.columns:
             df = df.dropna(subset=['LOAN_ID'])
 
-        # Fill numeric columns with median
+        # Fill numeric columns
         for col in df.select_dtypes(include=np.number).columns:
             df[col] = df[col].fillna(df[col].median())
 
-        # Fill categorical columns with mode
+        # Fill categorical columns
         for col in df.select_dtypes(include='object').columns:
-            df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else "UNKNOWN")
+            if not df[col].mode().empty:
+                df[col] = df[col].fillna(df[col].mode()[0])
+            else:
+                df[col] = df[col].fillna("UNKNOWN")
 
         # -----------------------------
-        # 4. STANDARDIZE DATE FORMATS
+        # 4. STANDARDIZE DATE FORMATS (CRITICAL FIX)
         # -----------------------------
-        for col in df.columns:
-            if 'DATE' in col:
-                df[col] = pd.to_datetime(df[col], errors='coerce')
+        # -----------------------------
+        # 4. STANDARDIZE DATE FORMATS (IMPROVED)
+        # -----------------------------
+        date_cols = [col for col in df.columns if 'DATE' in col]
+
+        for col in date_cols:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+
+            # Remove invalid dates (CRITICAL FIX for .dt errors)
+            invalid_dates = df[col].isna().sum()
+            if invalid_dates > 0:
+                print(f"⚠️ {invalid_dates} invalid dates found in {col}, removing...")
+                df = df[df[col].notna()]
+        # for col in df.columns:
+        #     if 'DATE' in col:
+        #         df[col] = pd.to_datetime(df[col], errors='coerce')
+        #
+        # # 🔥 REMOVE INVALID DATES (fix .dt errors globally)
+        # for col in df.columns:
+        #     if 'DATE' in col:
+        #         df = df[df[col].notna()]
 
         # -----------------------------
         # 5. REMOVE IRRELEVANT COLUMNS
@@ -57,7 +77,7 @@ def clean_data(data):
         df = df.drop(columns=irrelevant_cols, errors='ignore')
 
         # -----------------------------
-        # 6. HANDLE OUTLIERS
+        # 6. HANDLE OUTLIERS (CAPPING)
         # -----------------------------
         numeric_cols = df.select_dtypes(include=np.number).columns
 
@@ -69,7 +89,6 @@ def clean_data(data):
             lower = Q1 - 1.5 * IQR
             upper = Q3 + 1.5 * IQR
 
-            # Cap outliers
             df[col] = np.where(df[col] < lower, lower, df[col])
             df[col] = np.where(df[col] > upper, upper, df[col])
 
@@ -82,8 +101,50 @@ def clean_data(data):
         if 'INTEREST_RATE' in df.columns:
             df = df[df['INTEREST_RATE'] >= 0]
 
+        # -----------------------------
+        # 8. REGION STANDARDIZATION (NEW)
+        # -----------------------------
+        if 'REGION' in df.columns:
+            df['REGION'] = df['REGION'].astype(str).str.upper().str.strip()
+
+        # -----------------------------
+        # SAVE CLEANED DATA
+        # -----------------------------
         cleaned[name] = df
 
         print(f"✅ {name} cleaned. Shape: {df.shape}")
+
+    # =========================================
+    # 🔥 GLOBAL FEATURE ENGINEERING (IMPORTANT)
+    # =========================================
+
+    # 9. CREATE DEFAULT FLAG (LOANS LEVEL)
+    if 'loans' in cleaned and 'defaults' in cleaned:
+        loans = cleaned['loans']
+        defaults = cleaned['defaults']
+
+        loans['DEFAULT_FLAG'] = loans['LOAN_ID'].isin(
+            defaults['LOAN_ID']
+        ).astype(int)
+
+        cleaned['loans'] = loans
+
+        print("\n✅ DEFAULT_FLAG created in loans dataset")
+
+    # 10. ENSURE REGION IN LOANS (FOR ANALYSIS)
+    if 'loans' in cleaned and 'customers' in cleaned:
+        loans = cleaned['loans']
+        customers = cleaned['customers']
+
+        if 'REGION' in customers.columns:
+            loans = loans.merge(
+                customers[['CUSTOMER_ID', 'REGION']],
+                on='CUSTOMER_ID',
+                how='left'
+            )
+
+            cleaned['loans'] = loans
+
+            print("✅ REGION added to loans dataset")
 
     return cleaned

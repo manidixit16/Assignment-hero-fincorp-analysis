@@ -1,52 +1,75 @@
 import pandas as pd
 
 def branch_efficiency_analysis(applications, loans, branches):
+
     print("\n🏢 BRANCH EFFICIENCY ANALYSIS")
 
     results = {}
 
     # -----------------------------------
-    # MERGE DATA
+    # STANDARDIZE COLUMNS
     # -----------------------------------
-    applications['APPLICATION_DATE'] = pd.to_datetime(applications['APPLICATION_DATE'], errors='coerce')
-    loans['DISBURSEMENT_DATE'] = pd.to_datetime(loans['DISBURSEMENT_DATE'], errors='coerce')
-
-    merged = applications.merge(loans, on='APPLICATION_ID', how='left') \
-                         .merge(branches, on='BRANCH_ID', how='left')
+    applications.columns = [col.upper() for col in applications.columns]
+    loans.columns = [col.upper() for col in loans.columns]
+    branches.columns = [col.upper() for col in branches.columns]
 
     # -----------------------------------
-    # 1. PROCESSING TIME PER BRANCH
+    # CORRECT MERGE (FIXED)
     # -----------------------------------
-    merged['PROCESSING_DAYS'] = (
-        merged['DISBURSEMENT_DATE'] - merged['APPLICATION_DATE']
-    ).dt.days
+    merged = applications.merge(loans, on='LOAN_ID', how='left')
 
-    if 'BRANCH_ID' in merged.columns:
-        processing = merged.groupby('BRANCH_ID')['PROCESSING_DAYS'].mean()
+    # -----------------------------------
+    # DATE CONVERSION
+    # -----------------------------------
+    if 'APPLICATION_DATE' in merged.columns and 'DISBURSAL_DATE' in merged.columns:
+
+        merged['PROCESSING_DAYS'] = (
+            merged['DISBURSAL_DATE'] - merged['APPLICATION_DATE']
+        ).dt.days
+
+        merged = merged[merged['PROCESSING_DAYS'].notna()]
+
+    else:
+        print("⚠️ Missing date columns")
+        return results
+
+    # -----------------------------------
+    # 1. PROCESSING TIME (NO BRANCH_ID → USE REGION)
+    # -----------------------------------
+    if 'REGION' in merged.columns:
+        processing = merged.groupby('REGION')['PROCESSING_DAYS'].mean()
         results['processing_time'] = processing
 
-        print("\nAvg Processing Time per Branch:\n", processing.head())
+        print("\nAvg Processing Time per Region:\n", processing.head())
+    else:
+        print("⚠️ REGION missing")
 
     # -----------------------------------
     # 2. REJECTED APPLICATIONS
     # -----------------------------------
     if 'APPROVAL_STATUS' in applications.columns:
+
         rejected = applications[
             applications['APPROVAL_STATUS'].str.upper() == 'REJECTED'
         ]
 
-        rejected_counts = rejected.groupby('BRANCH_ID').size()
-        results['rejected_counts'] = rejected_counts
+        if 'REGION' in rejected.columns:
+            rejected_counts = rejected.groupby('REGION').size()
+            results['rejected_counts'] = rejected_counts
 
-        print("\nRejected Applications per Branch:\n", rejected_counts.head())
+            print("\nRejected Applications per Region:\n", rejected_counts.head())
+        else:
+            print("⚠️ REGION missing in applications")
 
     # -----------------------------------
-    # 3. CUSTOMER SATISFACTION (IF EXISTS)
+    # 3. CUSTOMER SATISFACTION
     # -----------------------------------
     if 'CUSTOMER_SATISFACTION' in applications.columns:
-        satisfaction = applications.groupby('BRANCH_ID')['CUSTOMER_SATISFACTION'].mean()
-        results['satisfaction'] = satisfaction
 
-        print("\nCustomer Satisfaction by Branch:\n", satisfaction.head())
+        if 'REGION' in applications.columns:
+            satisfaction = applications.groupby('REGION')['CUSTOMER_SATISFACTION'].mean()
+            results['satisfaction'] = satisfaction
+
+            print("\nCustomer Satisfaction by Region:\n", satisfaction.head())
 
     return results

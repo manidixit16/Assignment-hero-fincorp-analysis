@@ -8,11 +8,11 @@ def transaction_pattern_analysis(df, transactions):
     # -----------------------------------
     # 1. IRREGULAR REPAYMENT PATTERNS
     # -----------------------------------
-    if 'CUSTOMER_ID' in transactions.columns:
+    if 'CUSTOMER_ID' in transactions.columns and 'AMOUNT' in transactions.columns:
         txn_count = transactions.groupby('CUSTOMER_ID').size()
 
         # Calculate variation (std dev proxy)
-        txn_variation = transactions.groupby('CUSTOMER_ID')['TRANSACTION_AMOUNT'].std()
+        txn_variation = transactions.groupby('CUSTOMER_ID')['AMOUNT'].std()
 
         irregular = txn_variation[txn_variation > txn_variation.median()]
 

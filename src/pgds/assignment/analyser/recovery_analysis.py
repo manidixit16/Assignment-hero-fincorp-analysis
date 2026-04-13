@@ -4,7 +4,7 @@ def recovery_effectiveness(df, defaults, branches):
     print("\n💊 RECOVERY EFFECTIVENESS ANALYSIS")
 
     results = {}
-
+    merged = None
     # -----------------------------------
     # 1. RECOVERY RATE CALCULATION
     # -----------------------------------
@@ -63,7 +63,7 @@ def recovery_effectiveness(df, defaults, branches):
     # -----------------------------------
     # 4. REGION-WISE RECOVERY (BONUS)
     # -----------------------------------
-    if 'REGION' in merged.columns:
+    if 'REGION' in df.columns:
         region_recovery = merged.groupby('REGION')['RECOVERY_RATE'].mean()
         results['region_recovery'] = region_recovery
 

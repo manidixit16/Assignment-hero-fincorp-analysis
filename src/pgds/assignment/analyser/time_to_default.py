@@ -14,8 +14,8 @@ def time_to_default_analysis(df, loans, defaults):
     # -----------------------------------
     # CONVERT DATES
     # -----------------------------------
-    loans['DISBURSEMENT_DATE'] = pd.to_datetime(
-        loans['DISBURSEMENT_DATE'], errors='coerce'
+    loans['DISBURSAL_DATE'] = pd.to_datetime(
+        loans['DISBURSAL_DATE'], errors='coerce'
     )
 
     defaults['DEFAULT_DATE'] = pd.to_datetime(
@@ -33,7 +33,7 @@ def time_to_default_analysis(df, loans, defaults):
     # CALCULATE TIME TO DEFAULT
     # -----------------------------------
     merged['TIME_TO_DEFAULT'] = (
-        merged['DEFAULT_DATE'] - merged['DISBURSEMENT_DATE']
+        merged['DEFAULT_DATE'] - merged['DISBURSAL_DATE']
     ).dt.days
 
     # Remove invalid values

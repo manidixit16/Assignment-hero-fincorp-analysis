@@ -1,7 +1,7 @@
 import pandas as pd
 
 def disbursement_efficiency(applications, loans, branches):
-    print("\n⏱️ LOAN DISBURSEMENT EFFICIENCY")
+    print("\n LOAN DISBURSEMENT EFFICIENCY")
 
     results = {}
     merged = applications.merge(loans, on='LOAN_ID', how='left')
@@ -9,35 +9,23 @@ def disbursement_efficiency(applications, loans, branches):
     # -----------------------------------
     # CREATE PROCESSING DAYS SAFELY
     # -----------------------------------
-    if 'APPLICATION_DATE' in merged.columns and 'DISBURSEMENT_DATE' in merged.columns:
+    if 'APPLICATION_DATE' in merged.columns and 'DISBURSAL_DATE' in merged.columns:
         merged['PROCESSING_DAYS'] = (
-                merged['DISBURSEMENT_DATE'] - merged['APPLICATION_DATE']
+                merged['DISBURSAL_DATE'] - merged['APPLICATION_DATE']
         ).dt.days
+        # Remove invalid values
+        merged = merged[merged['PROCESSING_DAYS'].notna()]
+        merged = merged[merged['PROCESSING_DAYS'] >= 0]
     else:
         print("⚠️ Missing date columns → PROCESSING_DAYS not created")
 
     # -----------------------------------
     # 1. PROCESSING TIME
     # -----------------------------------
-    applications['APPLICATION_DATE'] = pd.to_datetime(
-        applications['APPLICATION_DATE'], errors='coerce'
-    )
+    avg_processing = merged['PROCESSING_DAYS'].mean()
+    results['avg_processing_time'] = avg_processing
 
-    if 'DISBURSEMENT_DATE' in loans.columns:
-        loans['DISBURSEMENT_DATE'] = pd.to_datetime(
-            loans['DISBURSEMENT_DATE'], errors='coerce'
-        )
-
-        merged = applications.merge(loans, on='APPLICATION_ID', how='left')
-
-        merged['PROCESSING_DAYS'] = (
-            merged['DISBURSEMENT_DATE'] - merged['APPLICATION_DATE']
-        ).dt.days
-
-        avg_processing = merged['PROCESSING_DAYS'].mean()
-        results['avg_processing_time'] = avg_processing
-
-        print(f"\nAverage Processing Time: {avg_processing:.2f} days")
+    print(f"\nAverage Processing Time: {avg_processing:.2f} days")
 
     # -----------------------------------
     # 2. REGION COMPARISON
@@ -51,7 +39,7 @@ def disbursement_efficiency(applications, loans, branches):
     # -----------------------------------
     # 3. LOAN PURPOSE ANALYSIS
     # -----------------------------------
-    if 'LOAN_PURPOSE' in merged.columns and 'PROCESSING_DAYS' in merged.columns:
+    if 'LOAN_PURPOSE' in merged.columns :
         purpose_trend = merged.groupby('LOAN_PURPOSE')['PROCESSING_DAYS'].mean()
         results['purpose_trend'] = purpose_trend
 

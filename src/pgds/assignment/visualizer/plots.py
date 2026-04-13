@@ -272,7 +272,6 @@ def plot_recovery_analysis(defaults, df, branches):
 
 # Task 11
 import pandas as pd
-import matplotlib.pyplot as plt
 
 def plot_disbursement_efficiency(applications, loans, branches):
 
@@ -338,36 +337,51 @@ def plot_profitability(df, branches):
         plt.clf()
 
 # Task 13
-import matplotlib.pyplot as plt
+
 
 def plot_geospatial(df, branches):
+    print("Generating  Plots for Geospatial Analysis (13)")
 
-    merged = df.merge(branches, on='BRANCH_ID', how='left')
+    # -----------------------------------
+    # STANDARDIZE COLUMN NAMES
+    # -----------------------------------
+
+    df.columns = [col.upper() for col in df.columns]
 
     # -----------------------------
     # REGION DISTRIBUTION
     # -----------------------------
-    if 'REGION' in merged.columns:
-        merged['REGION'].value_counts().plot(kind='bar')
-        plt.title("Loan Distribution by Region")
+    if 'REGION' in df.columns:
+        df['REGION'].value_counts().plot(kind='bar')
+        plt.title("Map the distribution of active loans across regions.")
+        plt.xlabel("REGION")
+        plt.ylabel("Number of Loans")
         plt.savefig("reports/figures/geo_distribution.png")
         plt.clf()
 
     # -----------------------------
     # DEFAULT RATE BY REGION
     # -----------------------------
-    if 'REGION' in merged.columns:
-        merged.groupby('REGION')['DEFAULT_FLAG'].mean().plot(kind='bar')
-        plt.title("Default Rate by Region")
+    if 'REGION' in df.columns:
+        df.groupby('REGION')['DEFAULT_FLAG'].mean().plot(kind='bar')
+        plt.title("Compare default rates across different geographic regions.")
+        plt.xlabel("REGION")
+        plt.ylabel("Default Rate")
         plt.savefig("reports/figures/geo_default.png")
         plt.clf()
 
     # -----------------------------
     # RURAL vs URBAN
     # -----------------------------
-    if 'AREA_TYPE' in merged.columns:
-        merged.groupby('AREA_TYPE')['LOAN_AMOUNT'].sum().plot(kind='bar')
-        plt.title("Loan Disbursement: Rural vs Urban")
+    if 'AREA_TYPE' not in df.columns:
+        df['AREA_TYPE'] = df['REGION'].apply(
+            lambda x: 'Urban' if 'METRO' in str(x).upper() or 'CITY' in str(x).upper() else 'Rural'
+        )
+    if 'LOAN_AMOUNT' in df.columns:
+        df.groupby('AREA_TYPE')['LOAN_AMOUNT'].sum().plot(kind='bar')
+        plt.title("Visualize the loan disbursement trends for rural vs. urban areas.")
+        plt.xlabel("Area Type")
+        plt.ylabel("Loan Amount")
         plt.savefig("reports/figures/geo_rural_urban.png")
         plt.clf()
 
