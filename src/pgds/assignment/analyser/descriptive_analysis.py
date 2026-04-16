@@ -1,83 +1,99 @@
-"""
-TASK 2: Descriptive Analysis
-- Distribution of Loan_Amount, EMI_Amount, and Credit_Score
-- Regional trends in loan disbursement and defaults
-- Monthly trends in loan approvals and disbursements
-"""
-
 import pandas as pd
 
+def descriptive_analysis(df, applications):
 
-def descriptive_analysis(df, applications=None):
-    """
-    Summarise key metrics across the merged dataset.
+    print("\ DESCRIPTIVE ANALYSIS")
 
-    Parameters
-    ----------
-    df : pd.DataFrame  — master merged dataset
-    applications : pd.DataFrame, optional — raw applications (for monthly trend)
-
-    Returns
-    -------
-    dict with keys: loan_amount_stats, emi_stats, credit_score_stats,
-                    regional_trends, monthly_applications, monthly_disbursements
-    """
     results = {}
-    print("\n" + "="*55)
-    print(" TASK 2 — Descriptive Analysis")
-    print("="*55)
 
-    # ── 1. Distributions ──────────────────────────────────────────────────────
-    results['loan_amount_stats'] = df['LOAN_AMOUNT'].describe()
-    print("\n📌 Loan Amount Statistics:")
-    print(results['loan_amount_stats'].to_string())
+    # -----------------------------------
+    # 1. DISTRIBUTION ANALYSIS
+    # -----------------------------------
+    if 'LOAN_AMOUNT' in df.columns:
+        results['loan_stats'] = df['LOAN_AMOUNT'].describe()
+        print("\nLoan Amount Summary:\n", results['loan_stats'])
 
     if 'EMI_AMOUNT' in df.columns:
         results['emi_stats'] = df['EMI_AMOUNT'].describe()
-        print("\n📌 EMI Amount Statistics:")
-        print(results['emi_stats'].to_string())
+        print("\nEMI Summary:\n", results['emi_stats'])
 
     if 'CREDIT_SCORE' in df.columns:
         results['credit_score_stats'] = df['CREDIT_SCORE'].describe()
-        print("\n📌 Credit Score Statistics:")
-        print(results['credit_score_stats'].to_string())
+        print("\nCredit Score Summary:\n", results['credit_score_stats'])
 
-    # ── 2. Regional trends ────────────────────────────────────────────────────
+    # -----------------------------------
+    # 2. REGIONAL ANALYSIS
+    # -----------------------------------
     if 'REGION' in df.columns:
-        regional = df.groupby('REGION').agg(
-            Total_Disbursement=('LOAN_AMOUNT', 'sum'),
-            Loan_Count=('LOAN_ID', 'count'),
-            Default_Rate=('DEFAULT_FLAG', 'mean'),
-            Avg_Credit_Score=('CREDIT_SCORE', 'mean')
-        )
-        regional['Default_Rate'] = (regional['Default_Rate'] * 100).round(2)
-        regional['Avg_Credit_Score'] = regional['Avg_Credit_Score'].round(1)
-        results['regional_trends'] = regional
-        print("\n📌 Regional Trends:")
-        print(regional.to_string())
 
-    # ── 3. Monthly trends ─────────────────────────────────────────────────────
-    if applications is not None and 'APPLICATION_DATE' in applications.columns:
-        applications = applications.copy()
+        regional_loans = df.groupby('REGION')['LOAN_AMOUNT'].sum()
+        regional_defaults = df.groupby('REGION')['DEFAULT_FLAG'].mean()
+
+        results['regional_loans'] = regional_loans
+        results['regional_defaults'] = regional_defaults
+
+        print("\nLoan Distribution by Region:\n", regional_loans.head())
+        print("\nDefault Rate by Region:\n", regional_defaults.head())
+
+    # -----------------------------------
+    # 3. MONTHLY APPLICATIONS
+    # -----------------------------------
+    if 'APPLICATION_DATE' in applications.columns:
+
         applications['APPLICATION_DATE'] = pd.to_datetime(
             applications['APPLICATION_DATE'], errors='coerce'
         )
+
+        applications = applications[applications['APPLICATION_DATE'].notna()]
+
         monthly_apps = applications.groupby(
             applications['APPLICATION_DATE'].dt.to_period('M')
-        ).size().rename('Application_Count')
-        results['monthly_applications'] = monthly_apps
-        print(f"\n📌 Monthly Applications — sample (last 5 periods):")
-        print(monthly_apps.tail(5).to_string())
+        ).size()
 
+        if len(monthly_apps) > 1:
+            monthly_apps = monthly_apps.iloc[:-1]
+
+        results['monthly_applications'] = monthly_apps
+
+        print("\nMonthly Applications:\n", monthly_apps.head())
+
+    # -----------------------------------
+    # 4. MONTHLY DISBURSEMENT
+    # -----------------------------------
     if 'DISBURSAL_DATE' in df.columns:
-        df = df.copy()
+
         df['DISBURSAL_DATE'] = pd.to_datetime(df['DISBURSAL_DATE'], errors='coerce')
+        df = df[df['DISBURSAL_DATE'].notna()]
+
         monthly_disb = df.groupby(
             df['DISBURSAL_DATE'].dt.to_period('M')
-        )['LOAN_AMOUNT'].sum().rename('Total_Disbursed')
-        results['monthly_disbursements'] = monthly_disb
-        print(f"\n📌 Monthly Disbursements — sample (last 5 periods):")
-        print(monthly_disb.tail(5).to_string())
+        ).size()
 
-    print("\n✅ Task 2 complete")
+        if len(monthly_disb) > 1:
+            monthly_disb = monthly_disb.iloc[:-1]
+
+        results['monthly_disbursement'] = monthly_disb
+
+        print("\nMonthly Disbursement:\n", monthly_disb.head())
+
+    # -----------------------------------
+    # 5. MONTHLY APPROVAL TREND (NEW FIX)
+    # -----------------------------------
+    if 'APPROVAL_STATUS' in applications.columns:
+
+        approved = applications[
+            applications['APPROVAL_STATUS'].str.upper() == 'APPROVED'
+        ]
+
+        monthly_approved = approved.groupby(
+            approved['APPLICATION_DATE'].dt.to_period('M')
+        ).size()
+
+        if len(monthly_approved) > 1:
+            monthly_approved = monthly_approved.iloc[:-1]
+
+        results['monthly_approved'] = monthly_approved
+
+        print("\nMonthly Approved Loans:\n", monthly_approved.head())
+
     return results

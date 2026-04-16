@@ -1,66 +1,151 @@
 import pandas as pd
 
-def disbursement_efficiency(applications, loans, branches):
+def disbursement_efficiency(df):
+
     print("\n LOAN DISBURSEMENT EFFICIENCY")
 
     results = {}
-    merged = applications.merge(loans, on='LOAN_ID', how='left')
-
-    # -----------------------------------
-    # CREATE PROCESSING DAYS SAFELY
-    # -----------------------------------
-    if 'APPLICATION_DATE' in merged.columns and 'DISBURSAL_DATE' in merged.columns:
-        merged['PROCESSING_DAYS'] = (
-                merged['DISBURSAL_DATE'] - merged['APPLICATION_DATE']
-        ).dt.days
-        # Remove invalid values
-        merged = merged[merged['PROCESSING_DAYS'].notna()]
-        merged = merged[merged['PROCESSING_DAYS'] >= 0]
-    else:
-        print("⚠️ Missing date columns → PROCESSING_DAYS not created")
 
     # -----------------------------------
     # 1. PROCESSING TIME
     # -----------------------------------
-    avg_processing = merged['PROCESSING_DAYS'].mean()
-    results['avg_processing_time'] = avg_processing
+    if 'APPLICATION_DATE' in df.columns and 'DISBURSAL_DATE' in df.columns:
 
-    print(f"\nAverage Processing Time: {avg_processing:.2f} days")
+        df['APPLICATION_DATE'] = pd.to_datetime(df['APPLICATION_DATE'], errors='coerce')
+        df['DISBURSAL_DATE'] = pd.to_datetime(df['DISBURSAL_DATE'], errors='coerce')
 
-    # -----------------------------------
-    # 2. REGION COMPARISON
-    # -----------------------------------
-    if 'REGION' in merged.columns:
-        region_time = merged.groupby('REGION')['PROCESSING_DAYS'].mean()
-        results['branch_processing'] = region_time
+        df['PROCESSING_DAYS'] = (
+            df['DISBURSAL_DATE'] - df['APPLICATION_DATE']
+        ).dt.days
 
-        print("\nProcessing Time by Branch:\n", region_time.head())
+        # print("\ BEFORE CLEANING:")
+        # print(df['PROCESSING_DAYS'].describe())
 
-    # -----------------------------------
-    # 3. LOAN PURPOSE ANALYSIS
-    # -----------------------------------
-    if 'LOAN_PURPOSE' in merged.columns :
-        purpose_trend = merged.groupby('LOAN_PURPOSE')['PROCESSING_DAYS'].mean()
-        results['purpose_trend'] = purpose_trend
+        # -----------------------------------
+        # DATA CLEANING
+        # -----------------------------------
+        df_clean = df[
+            (df['PROCESSING_DAYS'].notna()) &   # remove NaN
+            (df['PROCESSING_DAYS'] >= 0) &      # remove negative
+            (df['PROCESSING_DAYS'] <= 120)      # remove unrealistic values
+        ].copy()
 
-        print("\nProcessing Time by Loan Purpose:\n", purpose_trend)
+        # print("\AFTER CLEANING:")
+        # print(df_clean['PROCESSING_DAYS'].describe())
+
+        # -----------------------------------
+        # AVERAGE + MEDIAN (BETTER)
+        # -----------------------------------
+        avg_time = df_clean['PROCESSING_DAYS'].mean()
+        median_time = df_clean['PROCESSING_DAYS'].median()
+
+        print(f"\n Average Processing Time: {avg_time:.2f} days")
+        print(f" Median Processing Time: {median_time:.2f} days")
+
+        results['avg_time'] = avg_time
+        results['median_time'] = median_time
+
     else:
-        print("⚠️ Missing LOAN_PURPOSE or PROCESSING_DAYS")
-    # if 'LOAN_PURPOSE' in merged.columns:
-    #     purpose_trend = merged.groupby('LOAN_PURPOSE')['PROCESSING_DAYS'].mean()
-    #     results['purpose_trend'] = purpose_trend
-    #
-    #     print("\nProcessing Time by Loan Purpose:\n", purpose_trend)
+        print(" Missing date columns")
+        return results   # stop if dates missing
 
     # -----------------------------------
-    # 4. REGION ANALYSIS
+    # 2. REGION COMPARISON (FIXED → USE CLEAN DATA)
     # -----------------------------------
-    # merged = merged.merge(branches, on='REGION', how='left')
+    if 'REGION' in df_clean.columns:
 
-    if 'REGION' in merged.columns and 'PROCESSING_DAYS' in merged.columns:
-        region_trend = merged.groupby('REGION')['PROCESSING_DAYS'].mean()
-        results['region_trend'] = region_trend
+        region_time = df_clean.groupby('REGION')['PROCESSING_DAYS'].mean()
 
-        print("\nProcessing Time by Region:\n", region_trend)
+        print("\n Processing Time by Region:\n", region_time)
+
+        results['region_time'] = region_time
+
+    else:
+        print(" REGION missing")
+
+    # -----------------------------------
+    # 3. LOAN PURPOSE ANALYSIS (FIXED)
+    # -----------------------------------
+    if 'LOAN_PURPOSE' in df_clean.columns:
+
+        purpose_time = df_clean.groupby('LOAN_PURPOSE')['PROCESSING_DAYS'].mean()
+
+        print("\n Processing Time by Loan Purpose:\n", purpose_time)
+
+        results['purpose'] = purpose_time
+
+    else:
+        print(" LOAN_PURPOSE not available")
+
+    # -----------------------------------
+    # BRANCH LIMITATION
+    # -----------------------------------
+    print("\n Branch comparison NOT possible")
+    print("Reason: No BRANCH_ID linkage in dataset")
 
     return results
+
+
+
+# import pandas as pd
+#
+# def disbursement_efficiency(df):
+#
+#     print("\n LOAN DISBURSEMENT EFFICIENCY")
+#
+#     results = {}
+#
+#     # -----------------------------------
+#     # 1. PROCESSING TIME
+#     # -----------------------------------
+#     if 'APPLICATION_DATE' in df.columns and 'DISBURSAL_DATE' in df.columns:
+#
+#         df['APPLICATION_DATE'] = pd.to_datetime(df['APPLICATION_DATE'], errors='coerce')
+#         df['DISBURSAL_DATE'] = pd.to_datetime(df['DISBURSAL_DATE'], errors='coerce')
+#
+#         df['PROCESSING_DAYS'] = (
+#             df['DISBURSAL_DATE'] - df['APPLICATION_DATE']
+#         ).dt.days
+#         print("CHECK++++++")
+#         print(df['PROCESSING_DAYS'].describe())
+#         avg_time = df['PROCESSING_DAYS'].mean()
+#
+#         print(f"\n Average Processing Time: {avg_time:.2f} days")
+#
+#         results['avg_time'] = avg_time
+#
+#     else:
+#         print(" Missing date columns")
+#
+#     # -----------------------------------
+#     # 2. REGION COMPARISON (ALTERNATIVE)
+#     # -----------------------------------
+#     if 'REGION' in df.columns:
+#
+#         region_time = df.groupby('REGION')['PROCESSING_DAYS'].mean()
+#
+#         print("\n Processing Time by Region:\n", region_time)
+#
+#         results['region_time'] = region_time
+#
+#     # -----------------------------------
+#     # 3. LOAN PURPOSE ANALYSIS
+#     # -----------------------------------
+#     if 'LOAN_PURPOSE' in df.columns:
+#
+#         purpose_time = df.groupby('LOAN_PURPOSE')['PROCESSING_DAYS'].mean()
+#
+#         print("\n Processing Time by Loan Purpose:\n", purpose_time)
+#
+#         results['purpose'] = purpose_time
+#
+#     else:
+#         print(" LOAN_PURPOSE not available")
+#
+#     # -----------------------------------
+#     #  BRANCH LIMITATION
+#     # -----------------------------------
+#     print("\n Branch comparison NOT possible")
+#     print("Reason: No BRANCH_ID linkage in dataset")
+#
+#     return results

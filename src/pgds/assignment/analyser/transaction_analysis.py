@@ -1,86 +1,75 @@
-import pandas as pd
+def transaction_recovery_analysis(df, transactions):
 
-def transaction_and_recovery_analysis(df, transactions, defaults, branches):
-    print("\n💸 TRANSACTION & RECOVERY ANALYSIS")
+    print("\n TRANSACTION & RECOVERY ANALYSIS")
 
     results = {}
 
     # -----------------------------------
-    # 1. PENALTY PAYMENTS ANALYSIS
+    # 7.1 PENALTY ANALYSIS
     # -----------------------------------
     if 'TRANSACTION_TYPE' in transactions.columns:
+
         penalty = transactions[
             transactions['TRANSACTION_TYPE'].str.upper() == 'PENALTY'
         ]
 
         penalty_count = len(penalty)
-        total_transactions = len(transactions)
+        total_txn = len(transactions)
 
-        penalty_ratio = penalty_count / total_transactions if total_transactions > 0 else 0
+        penalty_ratio = penalty_count / total_txn if total_txn > 0 else 0
+
+        print("\n Penalty Ratio:", penalty_ratio)
 
         results['penalty_ratio'] = penalty_ratio
 
-        print(f"\nPenalty Transaction Ratio: {penalty_ratio:.2%}")
-
     # -----------------------------------
-    # 2. OVERDUE TRENDS
+    # OVERDUE TREND
     # -----------------------------------
     if 'OVERDUE_AMOUNT' in df.columns:
-        overdue_trend = df.groupby('LOAN_ID')['OVERDUE_AMOUNT'].mean()
 
-        results['overdue_trend'] = overdue_trend
+        overdue_trend = df['OVERDUE_AMOUNT'].describe()
 
-        print("\nOverdue Trend Sample:\n", overdue_trend.head())
+        print("\n Overdue Summary:\n", overdue_trend)
 
-    # -----------------------------------
-    # 3. RECOVERY RATE
-    # -----------------------------------
-    defaults['RECOVERY_RATE'] = (
-        defaults['RECOVERY_AMOUNT'] / defaults['DEFAULT_AMOUNT']
-    )
+        results['overdue'] = overdue_trend
 
     # -----------------------------------
-    # 4. BY DEFAULT REASON
+    # 7.2 RECOVERY BY REASON
     # -----------------------------------
-    if 'DEFAULT_REASON' in defaults.columns:
-        reason_recovery = defaults.groupby('DEFAULT_REASON')['RECOVERY_RATE'].mean()
-        results['recovery_by_reason'] = reason_recovery
+    if 'DEFAULT_REASON' in df.columns:
 
-        print("\nRecovery by Default Reason:\n", reason_recovery)
+        recovery_reason = df.groupby('DEFAULT_REASON')['RECOVERY_RATE'].mean()
 
-    # -----------------------------------
-    # 5. BY LEGAL ACTION
-    # -----------------------------------
-    if 'LEGAL_ACTION' in defaults.columns:
-        legal_recovery = defaults.groupby('LEGAL_ACTION')['RECOVERY_RATE'].mean()
-        results['recovery_by_legal'] = legal_recovery
+        print("\n Recovery by Default Reason:\n", recovery_reason)
 
-        print("\nRecovery by Legal Action:\n", legal_recovery)
+        results['recovery_reason'] = recovery_reason
 
     # -----------------------------------
-    # 6. REGION COMPARISON
+    # RECOVERY BY LEGAL ACTION
     # -----------------------------------
-    # merged = df.merge(branches, on='BRANCH_ID', how='left') \
-    #            .merge(defaults, on='LOAN_ID', how='left')
-    merged = df.merge(defaults, on='LOAN_ID', how='left')
+    if 'LEGAL_ACTION' in df.columns:
 
-    if 'REGION' in merged.columns:
-        region_recovery = merged.groupby('REGION')['RECOVERY_RATE'].mean()
+        recovery_legal = df.groupby('LEGAL_ACTION')['RECOVERY_RATE'].mean()
+
+        print("\n Recovery by Legal Action:\n", recovery_legal)
+
+        results['recovery_legal'] = recovery_legal
+
+    # -----------------------------------
+    # 7.3 REGION COMPARISON
+    # -----------------------------------
+    if 'REGION' in df.columns:
+
+        region_recovery = df.groupby('REGION')['RECOVERY_RATE'].mean()
+
+        print("\n Recovery by Region:\n", region_recovery)
+
         results['region_recovery'] = region_recovery
 
-        print("\nRecovery by Region:\n", region_recovery)
-
     # -----------------------------------
-    # 7. BRANCH COMPARISON
+    #  BRANCH LIMITATION
     # -----------------------------------
-    if 'REGION' in merged.columns:
-        region_recovery = merged.groupby('REGION')['RECOVERY_RATE'].mean()
-        results['region_recovery'] = region_recovery
-
-        print("\nRecovery by Region:\n", region_recovery)
-    # branch_recovery = merged.groupby('BRANCH_ID')['RECOVERY_RATE'].mean()
-    # results['branch_recovery'] = branch_recovery
-    #
-    # print("\nRecovery by Branch:\n", branch_recovery.head())
+    print("\n Branch-level recovery comparison NOT possible")
+    print("Reason: No linkage between branch dataset and loan/default data")
 
     return results

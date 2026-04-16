@@ -1,150 +1,225 @@
 import pandas as pd
 import numpy as np
+import os
 
 def clean_data(data):
+
+    # -----------------------------------
+    # CREATE FOLDERS
+    # -----------------------------------
+    os.makedirs("data/cleaned", exist_ok=True)
+    os.makedirs("reports", exist_ok=True)
+
     cleaned = {}
 
+    # -----------------------------------
+    # OVERALL SUMMARY
+    # -----------------------------------
+    summary = {
+        'missing_removed': 0,
+        'duplicates_removed': 0,
+        'invalid_dates_removed': 0,
+        'negative_values_removed': 0,
+        'outliers_capped': 0
+    }
+
+    dataset_summary = []
+
+    # -----------------------------------
+    # LOOP THROUGH DATASETS
+    # -----------------------------------
     for name, df in data.items():
 
-        print(f"\n🔍 Cleaning {name} dataset...")
+        print(f"\nCleaning {name} dataset...")
 
-        # -----------------------------
+        ds_summary = {
+            'dataset': name,
+            'missing_removed': 0,
+            'duplicates_removed': 0,
+            'invalid_dates_removed': 0,
+            'negative_values_removed': 0,
+            'outliers_capped': 0
+        }
+
+        # -----------------------------------
         # 1. STANDARDIZE COLUMN NAMES
-        # -----------------------------
-        df.columns = df.columns.str.strip()
-        df.columns = df.columns.str.upper()
+        # -----------------------------------
+        df.columns = df.columns.str.strip().str.upper()
 
-        # -----------------------------
+        # -----------------------------------
         # 2. REMOVE DUPLICATES
-        # -----------------------------
+        # -----------------------------------
         duplicates = df.duplicated().sum()
-        print(f"Duplicates found: {duplicates}")
+
+        summary['duplicates_removed'] += duplicates
+        ds_summary['duplicates_removed'] += duplicates
+
         df = df.drop_duplicates()
 
-        # -----------------------------
-        # 3. HANDLE MISSING VALUES
-        # -----------------------------
-        missing = df.isnull().sum()
-        print("Missing values:\n", missing[missing > 0])
+        # -----------------------------------
+        # 3. HANDLE MISSING VALUES (CRITICAL FIX)
+        # -----------------------------------
+        before = df.shape[0]
 
-        # Drop critical missing IDs
+        # Drop CUSTOMER_ID if missing (safe)
         if 'CUSTOMER_ID' in df.columns:
-            df = df.dropna(subset=['CUSTOMER_ID'])
+            df = df[df['CUSTOMER_ID'].notna()]
 
-        if 'LOAN_ID' in df.columns:
-            df = df.dropna(subset=['LOAN_ID'])
+        # IMPORTANT FIX: DO NOT DROP LOAN_ID FOR APPLICATIONS
+        if name != 'applications':
+            if 'LOAN_ID' in df.columns:
+                df = df[df['LOAN_ID'].notna()]
 
-        # Fill numeric columns
+        removed = before - df.shape[0]
+
+        summary['missing_removed'] += removed
+        ds_summary['missing_removed'] += removed
+
+        # Fill numeric
         for col in df.select_dtypes(include=np.number).columns:
             df[col] = df[col].fillna(df[col].median())
 
-        # Fill categorical columns
+        # Fill categorical
         for col in df.select_dtypes(include='object').columns:
             if not df[col].mode().empty:
                 df[col] = df[col].fillna(df[col].mode()[0])
             else:
                 df[col] = df[col].fillna("UNKNOWN")
 
-        # -----------------------------
-        # 4. STANDARDIZE DATE FORMATS (CRITICAL FIX)
-        # -----------------------------
-        # -----------------------------
-        # 4. STANDARDIZE DATE FORMATS (IMPROVED)
-        # -----------------------------
-        date_cols = [col for col in df.columns if 'DATE' in col]
+        # -----------------------------------
+        # 4. DATE STANDARDIZATION
+        # -----------------------------------
+        for col in df.columns:
+            if 'DATE' in col:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
 
-        for col in date_cols:
-            df[col] = pd.to_datetime(df[col], errors='coerce')
+        # Drop invalid critical dates
+        if name == 'loans' and 'DISBURSAL_DATE' in df.columns:
+            before = df.shape[0]
+            df = df[df['DISBURSAL_DATE'].notna()]
+            removed = before - df.shape[0]
 
-            # Remove invalid dates (CRITICAL FIX for .dt errors)
-            invalid_dates = df[col].isna().sum()
-            if invalid_dates > 0:
-                print(f"⚠️ {invalid_dates} invalid dates found in {col}, removing...")
-                df = df[df[col].notna()]
-        # for col in df.columns:
-        #     if 'DATE' in col:
-        #         df[col] = pd.to_datetime(df[col], errors='coerce')
-        #
-        # # 🔥 REMOVE INVALID DATES (fix .dt errors globally)
-        # for col in df.columns:
-        #     if 'DATE' in col:
-        #         df = df[df[col].notna()]
+            summary['invalid_dates_removed'] += removed
+            ds_summary['invalid_dates_removed'] += removed
 
-        # -----------------------------
+        if name == 'applications' and 'APPLICATION_DATE' in df.columns:
+            before = df.shape[0]
+            df = df[df['APPLICATION_DATE'].notna()]
+            removed = before - df.shape[0]
+
+            summary['invalid_dates_removed'] += removed
+            ds_summary['invalid_dates_removed'] += removed
+
+        if name == 'defaults' and 'DEFAULT_DATE' in df.columns:
+            before = df.shape[0]
+            df = df[df['DEFAULT_DATE'].notna()]
+            removed = before - df.shape[0]
+
+            summary['invalid_dates_removed'] += removed
+            ds_summary['invalid_dates_removed'] += removed
+
+        # if 'INCOME' in df.columns:
+        #     df.rename(columns={'INCOME': 'ANNUAL_INCOME'}, inplace=True)
+        # -----------------------------------
         # 5. REMOVE IRRELEVANT COLUMNS
-        # -----------------------------
-        irrelevant_cols = [col for col in df.columns if 'NAME' in col]
-        df = df.drop(columns=irrelevant_cols, errors='ignore')
+        # -----------------------------------
+        df = df.drop(columns=[col for col in df.columns if 'NAME' in col], errors='ignore')
 
-        # -----------------------------
-        # 6. HANDLE OUTLIERS (CAPPING)
-        # -----------------------------
-        numeric_cols = df.select_dtypes(include=np.number).columns
+        # -----------------------------------
+        # 6. OUTLIER HANDLING (IMPORTANT COLS ONLY)
+        # -----------------------------------
+        for col in ['LOAN_AMOUNT', 'INTEREST_RATE', 'DEFAULT_AMOUNT']:
+            if col in df.columns:
 
-        for col in numeric_cols:
-            Q1 = df[col].quantile(0.25)
-            Q3 = df[col].quantile(0.75)
-            IQR = Q3 - Q1
+                before_vals = df[col].copy()
 
-            lower = Q1 - 1.5 * IQR
-            upper = Q3 + 1.5 * IQR
+                Q1 = df[col].quantile(0.25)
+                Q3 = df[col].quantile(0.75)
+                IQR = Q3 - Q1
 
-            df[col] = np.where(df[col] < lower, lower, df[col])
-            df[col] = np.where(df[col] > upper, upper, df[col])
+                lower = Q1 - 1.5 * IQR
+                upper = Q3 + 1.5 * IQR
 
-        # -----------------------------
-        # 7. INVALID VALUES CHECK
-        # -----------------------------
+                df[col] = np.clip(df[col], lower, upper)
+
+                count = (before_vals != df[col]).sum()
+
+                summary['outliers_capped'] += count
+                ds_summary['outliers_capped'] += count
+
+        # -----------------------------------
+        # 7. INVALID VALUE REMOVAL
+        # -----------------------------------
         if 'LOAN_AMOUNT' in df.columns:
+            before = df.shape[0]
             df = df[df['LOAN_AMOUNT'] > 0]
+            removed = before - df.shape[0]
+
+            summary['negative_values_removed'] += removed
+            ds_summary['negative_values_removed'] += removed
 
         if 'INTEREST_RATE' in df.columns:
+            before = df.shape[0]
             df = df[df['INTEREST_RATE'] >= 0]
+            removed = before - df.shape[0]
 
-        # -----------------------------
-        # 8. REGION STANDARDIZATION (NEW)
-        # -----------------------------
-        if 'REGION' in df.columns:
-            df['REGION'] = df['REGION'].astype(str).str.upper().str.strip()
+            summary['negative_values_removed'] += removed
+            ds_summary['negative_values_removed'] += removed
 
-        # -----------------------------
-        # SAVE CLEANED DATA
-        # -----------------------------
+        if 'DEFAULT_AMOUNT' in df.columns:
+            before = df.shape[0]
+            df = df[df['DEFAULT_AMOUNT'] >= 0]
+            removed = before - df.shape[0]
+
+            summary['negative_values_removed'] += removed
+            ds_summary['negative_values_removed'] += removed
+
+        # Save cleaned dataset
         cleaned[name] = df
+        dataset_summary.append(ds_summary)
 
-        print(f"✅ {name} cleaned. Shape: {df.shape}")
+        print(f"{name} cleaned. Shape: {df.shape}")
 
-    # =========================================
-    # 🔥 GLOBAL FEATURE ENGINEERING (IMPORTANT)
-    # =========================================
+    # -----------------------------------
+    # GLOBAL FEATURE ENGINEERING
+    # -----------------------------------
 
-    # 9. CREATE DEFAULT FLAG (LOANS LEVEL)
-    if 'loans' in cleaned and 'defaults' in cleaned:
-        loans = cleaned['loans']
-        defaults = cleaned['defaults']
+    loans = cleaned['loans']
+    defaults = cleaned['defaults']
+    customers = cleaned['customers']
 
-        loans['DEFAULT_FLAG'] = loans['LOAN_ID'].isin(
-            defaults['LOAN_ID']
-        ).astype(int)
+    # DEFAULT FLAG
+    loans['DEFAULT_FLAG'] = loans['LOAN_ID'].isin(defaults['LOAN_ID']).astype(int)
 
-        cleaned['loans'] = loans
+    # REGION
+    loans = loans.merge(
+        customers[['CUSTOMER_ID', 'REGION']],
+        on='CUSTOMER_ID',
+        how='left'
+    )
 
-        print("\n✅ DEFAULT_FLAG created in loans dataset")
+    cleaned['loans'] = loans
 
-    # 10. ENSURE REGION IN LOANS (FOR ANALYSIS)
-    if 'loans' in cleaned and 'customers' in cleaned:
-        loans = cleaned['loans']
-        customers = cleaned['customers']
+    # -----------------------------------
+    # SAVE CLEANED DATASETS
+    # -----------------------------------
+    for name, df in cleaned.items():
+        df.to_csv(f"data/cleaned/{name}.csv", index=False)
 
-        if 'REGION' in customers.columns:
-            loans = loans.merge(
-                customers[['CUSTOMER_ID', 'REGION']],
-                on='CUSTOMER_ID',
-                how='left'
-            )
+    print("\nCleaned datasets saved")
 
-            cleaned['loans'] = loans
+    # -----------------------------------
+    # SAVE SUMMARY
+    # -----------------------------------
+    overall_df = pd.DataFrame([summary])
+    dataset_df = pd.DataFrame(dataset_summary)
 
-            print("✅ REGION added to loans dataset")
+    with pd.ExcelWriter("reports/data_cleaning_summary.xlsx") as writer:
+        overall_df.to_excel(writer, sheet_name="overall", index=False)
+        dataset_df.to_excel(writer, sheet_name="dataset_breakdown", index=False)
+
+    dataset_df.to_csv("reports/data_cleaning_dataset_breakdown.csv", index=False)
+
+    print("\nSummary saved")
 
     return cleaned

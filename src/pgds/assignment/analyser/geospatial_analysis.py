@@ -1,106 +1,56 @@
-import pandas as pd
-import numpy as np
+def geospatial_analysis(df):
 
+    print("\n GEOSPATIAL ANALYSIS")
 
-def geospatial_analysis(df, branches):
-
-    print("\n🌍 GEO-SPATIAL ANALYSIS STARTED\n")
+    results = {}
 
     # -----------------------------------
-    # 1. MAP DISTRIBUTION OF ACTIVE LOANS
+    # 1. ACTIVE LOANS BY REGION (SAFE)
     # -----------------------------------
+    if 'LOAN_STATUS' in df.columns:
 
-    # Use branches dataset directly
-    active_loans_region = branches.groupby('REGION')['TOTAL_ACTIVE_LOANS'].sum()
+        status = df['LOAN_STATUS'].astype(str).str.upper().str.strip()
 
-    print("\n📊 Active Loans by Region:")
-    print(active_loans_region)
+        active_loans = df[
+            status.isin(['ACTIVE', 'APPROVED', 'DISBURSED'])
+        ]
 
+        # fallback if empty
+        if active_loans.empty:
+            print("No ACTIVE loans → using non-default loans")
+            active_loans = df[df['DEFAULT_FLAG'] == 0]
+
+    else:
+        print("LOAN_STATUS missing → using DEFAULT_FLAG")
+        active_loans = df[df['DEFAULT_FLAG'] == 0]
+
+    # REGION DISTRIBUTION
+    if 'REGION' in active_loans.columns:
+
+        region_dist = active_loans['REGION'].value_counts()
+
+        print("\n Active Loans by Region:\n", region_dist)
+
+        results['region_distribution'] = region_dist
+
+    else:
+        print("REGION missing")
 
     # -----------------------------------
     # 2. DEFAULT RATE BY REGION
     # -----------------------------------
+    if 'REGION' in df.columns and 'DEFAULT_FLAG' in df.columns:
 
-    # Step 1: create Default_Flag in df
-    if 'DEFAULT_FLAG' not in df.columns:
-        df['DEFAULT_FLAG'] = df['LOAN_ID'].isin(df.get('DEFAULT_LOAN_IDS', [])).astype(int)
+        default_rate = df.groupby('REGION')['DEFAULT_FLAG'].mean()
 
-    # 🚨 Since Branch_ID missing → assign region using RANDOM (proxy)
-    # (You can replace this later if real mapping exists)
-    if 'REGION' not in df.columns:
-        df['REGION'] = np.random.choice(branches['REGION'], size=len(df))
+        print("\n Default Rate by Region:\n", default_rate)
 
-    default_by_region = df.groupby('REGION')['DEFAULT_FLAG'].mean()
-
-    print("Default Rate by Region:")
-    print(default_by_region)
-
+        results['default_rate'] = default_rate
 
     # -----------------------------------
-    # 3. RURAL vs URBAN ANALYSIS
+    # 3. RURAL vs URBAN (NOT AVAILABLE)
     # -----------------------------------
+    print("\n Rural vs Urban analysis NOT possible")
+    print("Reason: AREA_TYPE column not available in dataset")
 
-    # Create Rural/Urban classification
-    branches['AREA_TYPE'] = branches['REGION'].apply(
-        lambda x: 'Urban' if 'Metro' in str(x) or 'City' in str(x) else 'Rural'
-    )
-
-    disbursement_area = branches.groupby('AREA_TYPE')['LOAN_DISBURSEMENT_AMOUNT'].sum()
-
-    print("Loan Disbursement: Rural vs Urban")
-    print(disbursement_area)
-
-
-    print("GEO-SPATIAL ANALYSIS COMPLETED")
-
-
-
-# import pandas as pd
-#
-# def geospatial_analysis(df, branches):
-#     print("\n🌍 GEOSPATIAL ANALYSIS")
-#
-#     results = {}
-#
-#     # -----------------------------------
-#     # MERGE WITH BRANCH DATA
-#     # -----------------------------------
-#     merged = df.merge(branches, on='BRANCH_ID', how='left')
-#
-#     # -----------------------------------
-#     # 1. LOAN DISTRIBUTION (REGION)
-#     # -----------------------------------
-#     if 'REGION' in merged.columns:
-#         loan_dist = merged['REGION'].value_counts()
-#
-#         results['loan_distribution'] = loan_dist
-#
-#         print("\nLoan Distribution by Region:\n", loan_dist)
-#
-#     # -----------------------------------
-#     # 2. DEFAULT RATE BY REGION
-#     # -----------------------------------
-#     if 'REGION' in merged.columns:
-#         default_rate = merged.groupby('REGION')['DEFAULT_FLAG'].mean()
-#
-#         results['default_rate'] = default_rate
-#
-#         print("\nDefault Rate by Region:\n", default_rate)
-#
-#     # -----------------------------------
-#     # 3. RURAL vs URBAN ANALYSIS
-#     # -----------------------------------
-#     if 'AREA_TYPE' in merged.columns:
-#         area_analysis = merged.groupby('AREA_TYPE').agg({
-#             'LOAN_AMOUNT': 'sum',
-#             'DEFAULT_FLAG': 'mean'
-#         }).rename(columns={
-#             'LOAN_AMOUNT': 'TOTAL_DISBURSEMENT',
-#             'DEFAULT_FLAG': 'DEFAULT_RATE'
-#         })
-#
-#         results['area_analysis'] = area_analysis
-#
-#         print("\nRural vs Urban Analysis:\n", area_analysis)
-#
-#     return results
+    return results

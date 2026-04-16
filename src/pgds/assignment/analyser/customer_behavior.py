@@ -1,71 +1,122 @@
 import pandas as pd
 
-def customer_behavior_analysis(df, applications):
-    print("\n🧠 CUSTOMER BEHAVIOR ANALYSIS")
+def customer_behavior_analysis(df, applications, customers):
+
+    print("\n CUSTOMER BEHAVIOR ANALYSIS")
 
     results = {}
 
     # -----------------------------------
+    # DETECT INCOME COLUMN (IMPORTANT FIX)
+    # -----------------------------------
+    income_col = None
+    for col in customers.columns:
+        if 'INCOME' in col.upper():
+            income_col = col
+            break
+
+    # -----------------------------------
     # 1. REPAYMENT BEHAVIOR SEGMENTATION
     # -----------------------------------
-    customer_default = df.groupby('CUSTOMER_ID')['DEFAULT_FLAG'].sum()
+    if 'CUSTOMER_ID' in df.columns and 'DEFAULT_FLAG' in df.columns:
 
-    def categorize(x):
-        if x == 0:
-            return "Always On Time"
-        elif x <= 2:
-            return "Occasional Defaulter"
-        else:
-            return "Frequent Defaulter"
+        behavior = df.groupby('CUSTOMER_ID')['DEFAULT_FLAG'].mean()
 
-    behavior = customer_default.apply(categorize)
-    results['behavior'] = behavior
+        def categorize(x):
+            if x == 0:
+                return 'Always On Time'
+            elif x < 0.5:
+                return 'Occasional Defaulter'
+            else:
+                return 'Frequent Defaulter'
 
-    print("\nCustomer Behavior Distribution:\n", behavior.value_counts())
+        segments = behavior.apply(categorize)
+
+        print("\n Repayment Behavior:\n", segments.value_counts())
+
+        results['behavior'] = segments
+
+    else:
+        print(" Missing CUSTOMER_ID or DEFAULT_FLAG")
 
     # -----------------------------------
-    # 2. DEMOGRAPHIC PATTERNS
+    # 2. DEMOGRAPHIC ANALYSIS (FIXED)
     # -----------------------------------
-    if 'ANNUAL_INCOME' in df.columns:
-        df['INCOME_GROUP'] = pd.qcut(
-            df['ANNUAL_INCOME'],
-            q=3,
+    merged = applications.merge(
+        customers,
+        on='CUSTOMER_ID',
+        how='left'
+    )
+
+    # AGE ANALYSIS
+    if 'AGE' in merged.columns:
+
+        merged['AGE_GROUP'] = pd.cut(
+            merged['AGE'],
+            bins=[18, 30, 50, 70],
+            labels=['Young', 'Middle', 'Senior']
+        )
+
+        age_analysis = merged.groupby(
+            ['AGE_GROUP', 'APPROVAL_STATUS']
+        ).size()
+
+        print("\n Approval by Age Group:\n", age_analysis)
+
+        results['age'] = age_analysis
+
+    else:
+        print("AGE column not available")
+
+    # GENDER ANALYSIS
+    if 'GENDER' in merged.columns:
+
+        gender_analysis = merged.groupby(
+            ['GENDER', 'APPROVAL_STATUS']
+        ).size()
+
+        print("\n Approval by Gender:\n", gender_analysis)
+
+        results['gender'] = gender_analysis
+
+    else:
+        print("GENDER column not available")
+
+    # INCOME ANALYSIS (FIXED)
+    if income_col and income_col in merged.columns:
+
+        merged['INCOME_SEGMENT'] = pd.qcut(
+            merged[income_col],
+            3,
             labels=['Low', 'Medium', 'High']
         )
 
-        income_pattern = df.groupby('INCOME_GROUP')['DEFAULT_FLAG'].mean()
-        results['income_pattern'] = income_pattern
+        income_analysis = merged.groupby(
+            ['INCOME_SEGMENT', 'APPROVAL_STATUS']
+        ).size()
 
-        print("\nDefault Rate by Income Group:\n", income_pattern)
+        print("\n Approval by Income Segment:\n", income_analysis)
 
-    if 'REGION' in df.columns:
-        region_pattern = df.groupby('REGION')['DEFAULT_FLAG'].mean()
-        results['region_pattern'] = region_pattern
+        results['income'] = income_analysis
 
-        print("\nDefault Rate by Region:\n", region_pattern)
-
-    # -----------------------------------
-    # 3. APPROVAL/REJECTION BY SEGMENT
-    # -----------------------------------
-    if 'CUSTOMER_ID' in applications.columns and 'APPROVAL_STATUS' in applications.columns:
-        merged = df[['CUSTOMER_ID']].merge(applications, on='CUSTOMER_ID', how='left')
-
-        approval_pattern = merged.groupby('APPROVAL_STATUS').size()
-        results['approval_pattern'] = approval_pattern
-
-        print("\nApproval Pattern:\n", approval_pattern)
+    else:
+        print(" Income column not available")
 
     # -----------------------------------
-    # 4. HIGH-VALUE CUSTOMERS
+    # 3. HIGH-VALUE CUSTOMERS
     # -----------------------------------
-    if 'LOAN_AMOUNT' in df.columns:
+    if income_col and income_col in df.columns:
+
         high_value = df[
-            (df['DEFAULT_FLAG'] == 0) &
-            (df['LOAN_AMOUNT'] > df['LOAN_AMOUNT'].quantile(0.75))
+            (df[income_col] > df[income_col].quantile(0.75)) &
+            (df['DEFAULT_FLAG'] == 0)
         ]
+
+        print("\n High Value Customers:", len(high_value))
 
         results['high_value'] = high_value
 
-        print("\nHigh Value Customers:", len(high_value))
+    else:
+        print(" Cannot compute high-value customers (income missing)")
 
     return results

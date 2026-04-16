@@ -1,69 +1,122 @@
-
-# def merge_all(data):
-#     df = data['applications'].copy()
-#
-#     df = df.merge(data['loans'], on='LOAN_ID', how='left')
-#
-#     df = df.merge(data['customers'], on='CUSTOMER_ID', how='left')
-#
-#     df = df.merge(data['branches'], on='BRANCH_ID', how='left')
-#
-#     return df
-    # df = data['loans'].merge(data['customers'], on='CUSTOMER_ID', how='left')
-    # if 'BRANCH_ID' in data['loans'].columns:
-    #     df = df.merge(data['branches'], on='BRANCH_ID', how='left')
-    # return df
 def merge_all(data):
 
-    applications = data['applications']
-    loans = data['loans']
-    customers = data['customers']
-    defaults = data['defaults']
-    transactions = data['transactions']
-
+    df = data['loans'].copy()
 
     # -----------------------------------
-    # BASE: APPLICATIONS
+    # CUSTOMER (existing logic + REGION added)
     # -----------------------------------
-    df = applications.copy()
+    df = df.merge(
+        data['customers'][['CUSTOMER_ID', 'CREDIT_SCORE', 'ANNUAL_INCOME', 'REGION']],
+        on='CUSTOMER_ID',
+        how='left'
+    )
 
     # -----------------------------------
-    # MERGE LOANS
+    # DEFAULT + RECOVERY (extended safely)
     # -----------------------------------
-    df = df.merge(loans, on=['LOAN_ID', 'CUSTOMER_ID'], how='left')
+    df = df.merge(
+        data['defaults'][[
+            'LOAN_ID',
+            'DEFAULT_AMOUNT',
+            'RECOVERY_AMOUNT',
+            'DEFAULT_REASON',
+            'LEGAL_ACTION',
+            'DEFAULT_DATE'
+        ]],
+        on='LOAN_ID',
+        how='left'
+    )
 
     # -----------------------------------
-    # MERGE CUSTOMERS
+    # APPLICATION (UPDATED HERE ✅)
     # -----------------------------------
-    df = df.merge(customers, on='CUSTOMER_ID', how='left')
+    df = df.merge(
+        data['applications'][[
+            'LOAN_ID',
+            'APPLICATION_DATE',
+            'LOAN_PURPOSE'   # ✅ ADDED
+        ]],
+        on='LOAN_ID',
+        how='left'
+    )
 
     # -----------------------------------
-    # MERGE DEFAULTS
+    # HANDLE MISSING
     # -----------------------------------
-    df = df.merge(defaults, on=['LOAN_ID', 'CUSTOMER_ID'], how='left')
-    # -----------------------------------
-    # MERGE TRANSACTIONS (AGGREGATED)
-    # -----------------------------------
-    # txn_agg = transactions.groupby('LOAN_ID').agg({
-    #     'TRANSACTION_AMOUNT': 'sum',
-    #     'PENALTY_AMOUNT': 'sum'
-    # }).reset_index()
-
-    # txn_agg.columns = ['LOAN_ID', 'TOTAL_TRANSACTION_AMOUNT', 'TOTAL_PENALTY']
-    txn_agg = transactions.groupby('LOAN_ID').size().reset_index(name='TOTAL_TRANSACTIONS')
-
-    df = df.merge(txn_agg, on='LOAN_ID', how='left')
-
-    # df = df.merge(txn_agg, on='LOAN_ID', how='left')
+    df['DEFAULT_AMOUNT'] = df['DEFAULT_AMOUNT'].fillna(0)
+    df['RECOVERY_AMOUNT'] = df['RECOVERY_AMOUNT'].fillna(0)
 
     # -----------------------------------
-    # CREATE DERIVED FEATURES
+    # RECOVERY RATE (existing logic)
     # -----------------------------------
-    if 'LOAN_AMOUNT' in df.columns and 'INTEREST_RATE' in df.columns:
-        df['INTEREST_INCOME'] = (
-            df['LOAN_AMOUNT'] *
-            (df['INTEREST_RATE'] / 100) *
-            (df['LOAN_TERM'] / 12)
-        )
+    df['RECOVERY_RATE'] = df['RECOVERY_AMOUNT'] / df['DEFAULT_AMOUNT'].replace(0, 1)
+
+    # -----------------------------------
+    # FIX REGION COLUMN
+    # -----------------------------------
+    if 'REGION_x' in df.columns:
+        df['REGION'] = df['REGION_x']
+    elif 'REGION_y' in df.columns:
+        df['REGION'] = df['REGION_y']
+
+    df.drop(columns=['REGION_x', 'REGION_y'], errors='ignore', inplace=True)
 
     return df
+
+# def merge_all(data):
+#
+#     df = data['loans'].copy()
+#
+#     # -----------------------------------
+#     # CUSTOMER (existing logic + REGION added)
+#     # -----------------------------------
+#     df = df.merge(
+#         data['customers'][['CUSTOMER_ID', 'CREDIT_SCORE', 'ANNUAL_INCOME', 'REGION']],
+#         on='CUSTOMER_ID',
+#         how='left'
+#     )
+#
+#     # -----------------------------------
+#     # DEFAULT + RECOVERY (extended safely)
+#     # -----------------------------------
+#     df = df.merge(
+#         data['defaults'][[
+#             'LOAN_ID',
+#             'DEFAULT_AMOUNT',
+#             'RECOVERY_AMOUNT',
+#             'DEFAULT_REASON',   # ✅ added
+#             'LEGAL_ACTION'      # ✅ added
+#         ]],
+#         on='LOAN_ID',
+#         how='left'
+#     )
+#     df = df.merge(
+#         data['applications'][['LOAN_ID', 'APPLICATION_DATE']],
+#         on='LOAN_ID',
+#         how='left'
+#     )
+#
+#
+#     # -----------------------------------
+#     # HANDLE MISSING
+#     # -----------------------------------
+#     df['DEFAULT_AMOUNT'] = df['DEFAULT_AMOUNT'].fillna(0)
+#     df['RECOVERY_AMOUNT'] = df['RECOVERY_AMOUNT'].fillna(0)
+#
+#     # -----------------------------------
+#     # RECOVERY RATE (existing logic)
+#     # -----------------------------------
+#     df['RECOVERY_RATE'] = df['RECOVERY_AMOUNT'] / df['DEFAULT_AMOUNT'].replace(0, 1)
+#
+#     # -----------------------------------
+#     # 🔥 FIX REGION COLUMN
+#     # -----------------------------------
+#     if 'REGION_x' in df.columns:
+#         df['REGION'] = df['REGION_x']
+#     elif 'REGION_y' in df.columns:
+#         df['REGION'] = df['REGION_y']
+#
+#     df.drop(columns=['REGION_x', 'REGION_y'], errors='ignore', inplace=True)
+#     return df
+#
+#

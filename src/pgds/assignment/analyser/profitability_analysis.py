@@ -1,52 +1,54 @@
-import pandas as pd
+def profitability_analysis(df):
 
-def profitability_analysis(df, branches=None):
-    print("\n💰 PROFITABILITY ANALYSIS")
+    print("\n PROFITABILITY ANALYSIS")
 
     results = {}
 
     # -----------------------------------
-    # 1. INTEREST INCOME CALCULATION
+    # 1. TOTAL INTEREST INCOME
     # -----------------------------------
     if 'LOAN_AMOUNT' in df.columns and 'INTEREST_RATE' in df.columns:
+
         df['INTEREST_INCOME'] = df['LOAN_AMOUNT'] * df['INTEREST_RATE']
 
         total_income = df['INTEREST_INCOME'].sum()
+
+        print(f"\n Total Interest Income: {total_income:,.2f}")
+
         results['total_income'] = total_income
 
-        print(f"\nTotal Interest Income: {total_income:.2f}")
+    else:
+        print(" Missing loan or interest data")
 
     # -----------------------------------
     # 2. PROFIT BY LOAN PURPOSE
     # -----------------------------------
     if 'LOAN_PURPOSE' in df.columns:
+
         purpose_profit = df.groupby('LOAN_PURPOSE')['INTEREST_INCOME'].sum()
+
+        print("\n Profit by Loan Purpose:\n", purpose_profit)
 
         results['purpose_profit'] = purpose_profit
 
-        print("\nProfit by Loan Purpose:\n", purpose_profit)
+    else:
+        print("LOAN_PURPOSE missing")
 
     # -----------------------------------
-    # 3. BRANCH PROFITABILITY
+    # 3. REGION PROFITABILITY (ALTERNATIVE)
     # -----------------------------------
-    if 'BRANCH_ID' in df.columns:
-        branch_profit = df.groupby('BRANCH_ID')['INTEREST_INCOME'].sum()
+    if 'REGION' in df.columns:
 
-        results['branch_profit'] = branch_profit
+        region_profit = df.groupby('REGION')['INTEREST_INCOME'].sum()
 
-        print("\nBranch Profitability:\n", branch_profit.head())
+        print("\n Profit by Region:\n", region_profit)
+
+        results['region_profit'] = region_profit
 
     # -----------------------------------
-    # 4. REGION PROFITABILITY
+    # BRANCH LIMITATION
     # -----------------------------------
-    if branches is not None:
-        # merged = df.merge(branches, on='BRANCH_ID', how='left')
-
-        if 'REGION' in df.columns and 'INTEREST_INCOME' in df.columns:
-            region_profit = df.groupby('REGION')['INTEREST_INCOME'].sum()
-
-            results['region_profit'] = region_profit
-
-            print("\nRegion Profitability:\n", region_profit)
+    print("\n Branch profitability analysis NOT possible")
+    print("Reason: No linkage between branch dataset and loan data")
 
     return results

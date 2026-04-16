@@ -1,64 +1,83 @@
 import pandas as pd
 
-def risk_assessment(df, defaults):
-    print("\n⚠️ RISK ASSESSMENT")
+def risk_analysis(df):
+
+    print("\n RISK ASSESSMENT")
 
     results = {}
 
     # -----------------------------------
-    # MERGE DEFAULT DATA
+    # DETECT INCOME COLUMN
     # -----------------------------------
-    merged = df.merge(defaults, on='LOAN_ID', how='left')
+    income_col = None
+    for col in df.columns:
+        if 'INCOME' in col.upper():
+            income_col = col
+            break
 
     # -----------------------------------
     # 1. RISK MATRIX
     # -----------------------------------
     required_cols = ['DEFAULT_AMOUNT', 'LOAN_TERM', 'INTEREST_RATE']
 
-    available_cols = [c for c in required_cols if c in merged.columns]
+    if all(col in df.columns for col in required_cols):
 
-    if len(available_cols) >= 2:
-        risk_matrix = merged[available_cols].corr()
+        # Normalize (simple scaling)
+        df['RISK_SCORE'] = (
+            df['DEFAULT_AMOUNT'].fillna(0) +
+            df['INTEREST_RATE'].fillna(0) +
+            df['LOAN_TERM'].fillna(0)
+        )
 
-        results['risk_matrix'] = risk_matrix
+        print("\n Risk Score Created")
 
-        print("\nRisk Matrix:\n", risk_matrix)
+        results['risk_score'] = df['RISK_SCORE']
 
-    # -----------------------------------
-    # 2. LOAN TYPE RISK RANKING
-    # -----------------------------------
-    if 'LOAN_TYPE' in merged.columns:
-        loan_risk = merged.groupby('LOAN_TYPE')['DEFAULT_AMOUNT'].mean()
-
-        loan_risk_sorted = loan_risk.sort_values(ascending=False)
-
-        results['loan_risk'] = loan_risk_sorted
-
-        print("\nLoan Type Risk Ranking:\n", loan_risk_sorted)
+    else:
+        print(" Missing columns for risk score")
 
     # -----------------------------------
-    # 3. HIGH-RISK CUSTOMER SEGMENTS
+    # 2. LOAN PURPOSE RISK
     # -----------------------------------
-    if 'CREDIT_SCORE' in df.columns and 'ANNUAL_INCOME' in df.columns:
+    if 'LOAN_PURPOSE' in df.columns and 'RISK_SCORE' in df.columns:
+
+        purpose_risk = df.groupby('LOAN_PURPOSE')['RISK_SCORE'].mean().sort_values(ascending=False)
+
+        print("\n Loan Purpose Risk Ranking:\n", purpose_risk)
+
+        results['purpose_risk'] = purpose_risk
+
+    else:
+        print("LOAN_PURPOSE or RISK_SCORE missing")
+
+    # -----------------------------------
+    # 3. CUSTOMER RISK SEGMENTS
+    # -----------------------------------
+    if 'CREDIT_SCORE' in df.columns:
 
         df['CREDIT_SEGMENT'] = pd.cut(
             df['CREDIT_SCORE'],
-            bins=[0, 500, 650, 750, 900],
-            labels=['High Risk', 'Medium', 'Good', 'Excellent']
-        )
-
-        df['INCOME_GROUP'] = pd.qcut(
-            df['ANNUAL_INCOME'],
-            q=3,
+            bins=[300, 600, 750, 900],
             labels=['Low', 'Medium', 'High']
         )
 
-        segment_risk = df.groupby(
-            ['CREDIT_SEGMENT', 'INCOME_GROUP']
-        )['DEFAULT_FLAG'].mean()
+        if income_col:
 
-        results['segment_risk'] = segment_risk
+            df['INCOME_SEGMENT'] = pd.qcut(
+                df[income_col],
+                3,
+                labels=['Low', 'Medium', 'High']
+            )
 
-        print("\nHigh-Risk Segments:\n", segment_risk)
+            risk_segment = df.groupby(
+                ['CREDIT_SEGMENT', 'INCOME_SEGMENT']
+            )['DEFAULT_FLAG'].mean()
+
+            print("\n Risk by Customer Segment:\n", risk_segment)
+
+            results['customer_risk'] = risk_segment
+
+    else:
+        print(" CREDIT_SCORE missing")
 
     return results

@@ -1,12 +1,13 @@
 import pandas as pd
 
-def advanced_statistical_analysis(df, branches=None, defaults=None):
-    print("\n📈 ADVANCED STATISTICAL ANALYSIS")
+def advanced_statistical_analysis(df, branches):
+
+    print("\n ADVANCED STATISTICAL ANALYSIS")
 
     results = {}
 
     # -----------------------------------
-    # 1. CORRELATION (DEFAULT RISK)
+    # 1. DEFAULT RISK CORRELATION
     # -----------------------------------
     cols = [
         'CREDIT_SCORE',
@@ -16,61 +17,45 @@ def advanced_statistical_analysis(df, branches=None, defaults=None):
         'DEFAULT_FLAG'
     ]
 
-    cols = [c for c in cols if c in df.columns]
+    available_cols = [col for col in cols if col in df.columns]
 
-    if len(cols) >= 2:
-        corr = df[cols].corr()
-        results['default_risk_corr'] = corr
-        print("\nDefault Risk Correlation:\n", corr)
+    if len(available_cols) >= 2:
 
-    # -----------------------------------
-    # 2. PAIRWISE CORRELATION (ADVANCED)
-    # -----------------------------------
-    if defaults is not None:
-        defaults['RECOVERY_RATE'] = (
-            defaults['RECOVERY_AMOUNT'] / defaults['DEFAULT_AMOUNT']
-        )
+        corr = df[available_cols].corr()
+        results['default_corr'] = corr
 
-        pair_cols = [
-            'EMI_AMOUNT',
-            'RECOVERY_RATE',
-            'DEFAULT_AMOUNT'
-        ]
+        print("\n Default Risk Correlation:\n", corr)
 
-        merged = df.merge(defaults, on='LOAN_ID', how='left')
-
-        pair_cols = [c for c in pair_cols if c in merged.columns]
-
-        if len(pair_cols) >= 2:
-            pair_corr = merged[pair_cols].corr()
-            results['pairwise_corr'] = pair_corr
-            print("\nPairwise Correlation:\n", pair_corr)
+    else:
+        print("  Missing columns for correlation")
 
     # -----------------------------------
-    # 3. BRANCH-LEVEL CORRELATION
+    # 2. PAIRWISE CORRELATION
     # -----------------------------------
-    if branches is not None:
-        if 'BRANCH_ID' not in df.columns:
-            print("⚠️ ********** BRANCH_ID not available in dataset → skipping branch-level correlation")
-        else:
-             print("######################")
-             branch_cols = [
-            'DELINQUENT_LOANS',
-            'LOAN_DISBURSEMENT_AMOUNT'
-            ]
+    pair_cols = ['EMI_AMOUNT', 'RECOVERY_RATE', 'DEFAULT_AMOUNT']
 
-             merged = df.merge(branches, on='BRANCH_ID', how='left')
+    available_pair = [col for col in pair_cols if col in df.columns]
 
-             merged['RECOVERY_RATE'] = merged.get('RECOVERY_AMOUNT', 0) / merged.get('DEFAULT_AMOUNT', 1)
+    if len(available_pair) >= 2:
 
-             branch_cols = [c for c in branch_cols if c in merged.columns]
+        corr_pair = df[available_pair].corr()
+        results['pairwise_corr'] = corr_pair
 
-             branch_cols.append('RECOVERY_RATE')
+        print("\n Pairwise Correlation:\n", corr_pair)
 
-             if len(branch_cols) >= 2:
-                 branch_corr = merged[branch_cols].corr()
-                 results['branch_corr'] = branch_corr
+    # -----------------------------------
+    # 3. BRANCH LEVEL (LIMITED)
+    # -----------------------------------
+    print("\n  Branch-Level Analysis Limitation:")
+    print("Branch dataset is NOT linked with loan dataset.")
+    print("→ Cannot compute true branch-level recovery or efficiency.")
 
-                 print("\nBranch-Level Correlation:\n", branch_corr)
+    print("\n Performing limited branch analysis using available data...")
+
+    branch_corr = branches[['DELINQUENT_LOANS', 'LOAN_DISBURSEMENT_AMOUNT']].corr()
+
+    results['branch_corr'] = branch_corr
+
+    print("\n Branch Internal Correlation:\n", branch_corr)
 
     return results
