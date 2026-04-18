@@ -1,12 +1,9 @@
-Hero FinCorp: A Comprehensive Data-Driven Analysis
-Assignment Submission
-=====================================================
+Hero FinCorp Credit Portfolio Analysis
+=======================================
+Author  : Mani Dixit
+GitHub  : https://github.com/manidixit16/Assignment-hero-fincorp-analysis
 
-GitHub Repository Link:
-https://github.com/manidixit16/Assignment-hero-fincorp-analysis
+All charts : reports/figures/
+Report     : reports/mani_hero_fincorp_report.docx
 
-=====================================================
-Student Name    : Mani Dixit
-Student ID      : manidixit16
-Submission Date : April 2026
-=====================================================
+Entry point: main.py
