@@ -1,0 +1,1 @@
+Major pipeline update: overhauled data_cleaning.py (added IQR capping, missing value strategy, date standardisation), rewrote data_loader.py with cleaned data reload, rebuilt merge_data.py master join logic, expanded plots.py with 20-task full chart coverage
