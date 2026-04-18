@@ -1,0 +1,1 @@
+Initial project scaffold: added all 6 source datasets (customers, loans, applications, transactions, defaults, branches) and set up base directory structure with src/pgds/assignment package layout
