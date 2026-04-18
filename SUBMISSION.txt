@@ -1,9 +1,15 @@
-Hero FinCorp Credit Portfolio Analysis
-=======================================
+Hero FinCorp Credit Analytics — Submission
+==========================================
 Author  : Mani Dixit
-GitHub  : https://github.com/manidixit16/Assignment-hero-fincorp-analysis
+Repo    : https://github.com/manidixit16/Assignment-hero-fincorp-analysis
 
-All charts : reports/figures/
-Report     : reports/mani_hero_fincorp_report.docx
+Tasks Completed: 1–14, 16–20  (19 of 20)
+Task 15 Skipped: Branch-level efficiency analysis requires BRANCH_ID
+                 linkage in loans.csv / applications.csv — column absent
+                 in the provided dataset.
 
-Entry point: main.py
+Charts : reports/figures/   (PNG files for each task)
+Report : reports/hero_fincorp_analysis.docx
+
+Pipeline entry point : main.py
+Run with            : python main.py
